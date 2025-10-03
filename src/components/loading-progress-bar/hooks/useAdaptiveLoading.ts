@@ -1,6 +1,6 @@
 "use client";
 
-import { animate, clamp, type AnimationPlaybackControls } from "motion";
+import { animate, clamp, type AnimationPlaybackControls, type MotionValue } from "motion";
 import { useCallback, useEffect, useRef } from "react";
 import { useMotionValue } from "motion/react";
 
@@ -8,8 +8,16 @@ type ResetOptions = {
   animate?: boolean;
 };
 
-export function useAdaptiveLoading() {
-  const progress = useMotionValue(0);
+type AdaptiveLoadingOptions = {
+  progress?: MotionValue<number>;
+  autoStart?: boolean;
+  initialValue?: number;
+};
+
+export function useAdaptiveLoading(options: AdaptiveLoadingOptions = {}) {
+  const { progress: externalProgress, autoStart = true, initialValue = 0 } = options;
+  const fallbackProgress = useMotionValue(initialValue);
+  const progress = externalProgress ?? fallbackProgress;
   const timeoutRef = useRef<number | null>(null);
   const lastTargetRef = useRef(0);
   const animRef = useRef<AnimationPlaybackControls | null>(null);
@@ -83,12 +91,13 @@ export function useAdaptiveLoading() {
   }, [scheduleNext]);
 
   useEffect(() => {
+    if (autoStart) start();
     return () => {
       if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
       animRef.current?.stop();
     };
-  }, []);
+  }, [autoStart, start]);
 
   const reset = useCallback(
     (options?: ResetOptions) => {

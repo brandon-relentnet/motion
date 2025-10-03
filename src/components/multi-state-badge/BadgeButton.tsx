@@ -5,23 +5,31 @@ import { BadgeVisual } from "./BadgeVisual";
 
 type BadgeButtonProps = {
   state: BadgeState;
-  onClick?: () => void;
-  disabledStates?: BadgeState[];
+  onClick?: (nextState: BadgeState) => void;
+  disabled?: boolean;
+  labels?: Record<BadgeState, string>;
+  className?: string;
 };
 
-export function BadgeButton({ state, onClick, disabledStates }: BadgeButtonProps) {
-  const disabled = disabledStates?.includes(state) ?? false;
-
+export function BadgeButton({
+  state,
+  onClick,
+  disabled,
+  labels,
+  className,
+}: BadgeButtonProps) {
   return (
     <button
       type="button"
       onClick={() => {
-        if (!disabled) onClick?.();
+        if (!disabled) onClick?.(state);
       }}
       disabled={disabled}
-      className="bg-transparent p-0 border-0 disabled:cursor-default"
+      className={`bg-transparent p-0 border-0 disabled:cursor-default ${
+        className ?? ""
+      }`.trim()}
     >
-      <BadgeVisual state={state} />
+      <BadgeVisual state={state} labels={labels} />
     </button>
   );
 }

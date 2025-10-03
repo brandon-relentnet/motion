@@ -5,20 +5,26 @@ import { useEffect, useRef, useState } from "react";
 import type { BadgeState } from "./constants";
 import { BADGE_STATES, BADGE_TRANSITION } from "./constants";
 
-export function BadgeLabel({ state }: { state: BadgeState }) {
+type BadgeLabelProps = {
+  state: BadgeState;
+  labels?: Record<BadgeState, string>;
+};
+
+export function BadgeLabel({ state, labels }: BadgeLabelProps) {
   const [labelWidth, setLabelWidth] = useState(0);
   const measureRef = useRef<HTMLDivElement>(null);
+  const labelText = (labels ?? BADGE_STATES)[state];
 
   useEffect(() => {
     if (!measureRef.current) return;
     const { width } = measureRef.current.getBoundingClientRect();
     setLabelWidth(width);
-  }, [state]);
+  }, [labelText]);
 
   return (
     <>
       <div ref={measureRef} className="absolute invisible whitespace-nowrap">
-        {BADGE_STATES[state]}
+        {labelText}
       </div>
 
       <motion.span
@@ -31,12 +37,27 @@ export function BadgeLabel({ state }: { state: BadgeState }) {
           <motion.div
             key={state}
             className="whitespace-nowrap"
-            initial={{ y: -20, opacity: 0, filter: "blur(10px)", position: "absolute" as const }}
-            animate={{ y: 0, opacity: 1, filter: "blur(0px)", position: "relative" as const }}
-            exit={{ y: 20, opacity: 0, filter: "blur(10px)", position: "absolute" as const }}
+            initial={{
+              y: -20,
+              opacity: 0,
+              filter: "blur(10px)",
+              position: "absolute" as const,
+            }}
+            animate={{
+              y: 0,
+              opacity: 1,
+              filter: "blur(0px)",
+              position: "relative" as const,
+            }}
+            exit={{
+              y: 20,
+              opacity: 0,
+              filter: "blur(10px)",
+              position: "absolute" as const,
+            }}
             transition={{ duration: 0.2, ease: "easeInOut" }}
           >
-            {BADGE_STATES[state]}
+            {labelText}
           </motion.div>
         </AnimatePresence>
       </motion.span>

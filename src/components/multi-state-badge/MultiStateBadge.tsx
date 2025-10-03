@@ -1,20 +1,62 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { BadgeButton } from "./BadgeButton";
 import type { BadgeState } from "./constants";
+import { BADGE_STATES } from "./constants";
 import { INITIAL_BADGE_STATE, getNextState } from "./state";
 
-export function MultiStateBadge() {
-  const [state, setState] = useState<BadgeState>(INITIAL_BADGE_STATE);
+type MultiStateBadgeProps = {
+  state?: BadgeState;
+  defaultState?: BadgeState;
+  onStateChange?: (state: BadgeState) => void;
+  labels?: Partial<Record<BadgeState, string>>;
+  disabled?: boolean;
+  onBadgeClick?: (state: BadgeState) => void;
+  cycleOnClick?: boolean;
+  getNextState?: (state: BadgeState) => BadgeState;
+  className?: string;
+};
+
+export function MultiStateBadge({
+  state,
+  defaultState = INITIAL_BADGE_STATE,
+  onStateChange,
+  labels,
+  disabled,
+  onBadgeClick,
+  cycleOnClick = true,
+  getNextState: resolveNextState = getNextState,
+  className,
+}: MultiStateBadgeProps) {
+  const [internalState, setInternalState] = useState<BadgeState>(defaultState);
+  const isControlled = state !== undefined;
+  const currentState = isControlled ? state : internalState;
+
+  const mergedLabels = useMemo(() => {
+    if (!labels) return BADGE_STATES;
+    return { ...BADGE_STATES, ...labels } as Record<BadgeState, string>;
+  }, [labels]);
+
+  const handleClick = useCallback(() => {
+    onBadgeClick?.(currentState);
+    if (!cycleOnClick) return;
+    const next = resolveNextState(currentState);
+    if (!isControlled) setInternalState(next);
+    onStateChange?.(next);
+  }, [cycleOnClick, currentState, isControlled, resolveNextState, onBadgeClick, onStateChange]);
 
   return (
-    <div className="flex flex-col justify-between items-center p-4 h-20">
+    <div
+      className={`flex flex-col justify-between items-center p-4 h-20 ${
+        className ?? ""
+      }`.trim()}
+    >
       <BadgeButton
-        state={state}
-        onClick={() => {
-          setState(getNextState(state));
-        }}
+        state={currentState}
+        onClick={handleClick}
+        labels={mergedLabels}
+        disabled={disabled}
       />
     </div>
   );

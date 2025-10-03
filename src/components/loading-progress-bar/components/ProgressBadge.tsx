@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { animate } from "motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BadgeIcon,
   BADGE_TRANSITION,
@@ -12,18 +12,23 @@ import { PROGRESS_BADGE_LABELS } from "../constants";
 
 type ProgressBadgeProps = {
   state: BadgeState;
-  labels?: Record<BadgeState, string>;
+  labels?: Partial<Record<BadgeState, string>>;
   className?: string;
 };
 
 export function ProgressBadge({
   state,
-  labels = PROGRESS_BADGE_LABELS,
+  labels,
   className,
 }: ProgressBadgeProps) {
   const badgeRef = useRef<HTMLDivElement | null>(null);
   const [labelWidth, setLabelWidth] = useState(0);
   const measureRef = useRef<HTMLDivElement>(null);
+  const resolvedLabels = useMemo(
+    () =>
+      ({ ...PROGRESS_BADGE_LABELS, ...labels } as Record<BadgeState, string>),
+    [labels]
+  );
 
   useEffect(() => {
     if (!badgeRef.current) return;
@@ -60,12 +65,14 @@ export function ProgressBadge({
     if (!measureRef.current) return;
     const { width } = measureRef.current.getBoundingClientRect();
     setLabelWidth(width);
-  }, [labels, state]);
+  }, [resolvedLabels, state]);
 
   const baseClasses =
     "outline outline-white/30 bg-white/50 backdrop-blur-md ring-1 ring-white/60 shadow-sm hover:bg-white/60 hover:shadow text-slate-900 flex overflow-hidden items-center justify-center py-3 px-5 rounded-2xl";
   const gapClass = state === "idle" ? "gap-0" : "gap-2";
-  const combinedClassName = [baseClasses, gapClass, className].filter(Boolean).join(" ");
+  const combinedClassName = [baseClasses, gapClass, className]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <motion.div
@@ -76,7 +83,7 @@ export function ProgressBadge({
     >
       <BadgeIcon state={state} />
       <div ref={measureRef} className="absolute invisible whitespace-nowrap">
-        {labels[state]}
+        {resolvedLabels[state]}
       </div>
 
       <motion.span
@@ -88,13 +95,28 @@ export function ProgressBadge({
         <AnimatePresence mode="sync" initial={false}>
           <motion.div
             key={state}
-            className="whitespace-nowrap"
-            initial={{ y: -20, opacity: 0, filter: "blur(10px)", position: "absolute" as const }}
-            animate={{ y: 0, opacity: 1, filter: "blur(0px)", position: "relative" as const }}
-            exit={{ y: 20, opacity: 0, filter: "blur(10px)", position: "absolute" as const }}
+            className="whitespace-nowrap font-semibold"
+            initial={{
+              y: -20,
+              opacity: 0,
+              filter: "blur(10px)",
+              position: "absolute" as const,
+            }}
+            animate={{
+              y: 0,
+              opacity: 1,
+              filter: "blur(0px)",
+              position: "relative" as const,
+            }}
+            exit={{
+              y: 20,
+              opacity: 0,
+              filter: "blur(10px)",
+              position: "absolute" as const,
+            }}
             transition={{ duration: 0.2, ease: "easeInOut" }}
           >
-            {labels[state]}
+            {resolvedLabels[state]}
           </motion.div>
         </AnimatePresence>
       </motion.span>
