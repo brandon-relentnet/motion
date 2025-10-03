@@ -1,4 +1,4 @@
-import LoadingProgressBar from "./components/LoadingProgressBar";
+import LoadingProgressBar from "./components/loading-progress-bar";
 
 function App() {
   return (
