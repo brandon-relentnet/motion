@@ -1,6 +1,8 @@
 export { MultiStateBadge } from "./MultiStateBadge";
+export { BadgeButton } from "./BadgeButton";
 export { BadgeVisual } from "./BadgeVisual";
 export { BadgeIcon } from "./BadgeIcon";
+export { BadgeLabel } from "./BadgeLabel";
 export {
   BADGE_STATES,
   BADGE_TRANSITION,
