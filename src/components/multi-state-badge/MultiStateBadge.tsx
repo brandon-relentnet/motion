@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { BadgeButton } from "./BadgeButton";
 import type { BadgeState } from "./constants";
+import { BadgeVisual } from "./BadgeVisual";
 import { INITIAL_BADGE_STATE, getNextState } from "./state";
 
 export function MultiStateBadge() {
@@ -10,12 +10,15 @@ export function MultiStateBadge() {
 
   return (
     <div className="flex flex-col justify-between items-center p-4 h-20">
-      <BadgeButton
-        state={state}
+      <button
+        type="button"
         onClick={() => {
           setState(getNextState(state));
         }}
-      />
+        className="bg-transparent p-0 border-0"
+      >
+        <BadgeVisual state={state} />
+      </button>
     </div>
   );
 }

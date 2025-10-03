@@ -1,13 +1,16 @@
 "use client";
 
-import { animate, motion } from "motion/react";
-import { useEffect, useRef } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { animate } from "motion";
+import { useEffect, useRef, useState } from "react";
 import type { BadgeState } from "./constants";
 import { BadgeIcon } from "./BadgeIcon";
-import { BadgeLabel } from "./BadgeLabel";
+import { BADGE_STATES, BADGE_TRANSITION } from "./constants";
 
 export function BadgeVisual({ state }: { state: BadgeState }) {
   const badgeRef = useRef<HTMLDivElement | null>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+  const [labelWidth, setLabelWidth] = useState(0);
 
   useEffect(() => {
     if (!badgeRef.current) return;
@@ -40,6 +43,12 @@ export function BadgeVisual({ state }: { state: BadgeState }) {
     }
   }, [state]);
 
+  useEffect(() => {
+    if (!measureRef.current) return;
+    const { width } = measureRef.current.getBoundingClientRect();
+    setLabelWidth(width);
+  }, [state]);
+
   return (
     <motion.div
       ref={badgeRef}
@@ -47,9 +56,33 @@ export function BadgeVisual({ state }: { state: BadgeState }) {
         state === "idle" ? "gap-0" : "gap-2"
       }`}
       style={{ willChange: "transform, filter" }}
+      transition={BADGE_TRANSITION}
     >
       <BadgeIcon state={state} />
-      <BadgeLabel state={state} />
+
+      <div ref={measureRef} className="absolute invisible whitespace-nowrap">
+        {BADGE_STATES[state]}
+      </div>
+
+      <motion.span
+        layout
+        className="relative"
+        animate={{ width: labelWidth }}
+        transition={BADGE_TRANSITION}
+      >
+        <AnimatePresence mode="sync" initial={false}>
+          <motion.div
+            key={state}
+            className="whitespace-nowrap"
+            initial={{ y: -20, opacity: 0, filter: "blur(10px)", position: "absolute" as const }}
+            animate={{ y: 0, opacity: 1, filter: "blur(0px)", position: "relative" as const }}
+            exit={{ y: 20, opacity: 0, filter: "blur(10px)", position: "absolute" as const }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+          >
+            {BADGE_STATES[state]}
+          </motion.div>
+        </AnimatePresence>
+      </motion.span>
     </motion.div>
   );
 }
