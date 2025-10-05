@@ -75,7 +75,7 @@ const Badge = ({ state }: { state: "idle" | "processing" | "success" }) => {
   return (
     <motion.div
       ref={badgeRef}
-      className={`bg-gray-100 text-[#0f1115] flex overflow-hidden items-center justify-center py-3 px-5 rounded-full ${gapClass}`}
+      className={`transition-colors duration-150 bg-gradient-to-br from-sky-300/40 via-indigo-300/40 to-violet-300/40 hover:bg-gradient-to-br hover:from-sky-300/30 hover:via-indigo-300/30 hover:to-violet-300/30 cursor-pointer backdrop-blur-2xl text-slate-900 font-poppins flex overflow-hidden items-center justify-center py-3 px-5 rounded-xl shadow-sm ${gapClass}`}
       style={{ willChange: "transform, filter" }}
     >
       <Icon state={state} />
