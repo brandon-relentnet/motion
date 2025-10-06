@@ -8,7 +8,8 @@ import {
   useVelocity,
 } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import DeployTab from "../tabs/Deploy";
+import Active from "../tabs/Active";
+import Stopped from "../tabs/Stopped";
 
 export default function SmoothTabs() {
   const [activeTab, setActiveTab] = useState(tabs[0].id);
@@ -38,7 +39,7 @@ export default function SmoothTabs() {
   }, [viewsContainerWidth]);
 
   return (
-    <div className="relative flex flex-col gap-2 justify-center items-center min-w-[280px] w-full max-w-7xl h-full">
+    <div className="relative container flex flex-col gap-2 justify-center items-center w-full">
       <div
         id="views-container"
         ref={viewsContainerRef}
@@ -89,8 +90,6 @@ const View = ({
   viewIndex: number;
   activeIndex: number;
 }) => {
-  // Calculate the index difference between the active tab and the current tab
-  // Then use it as the factor you multiply the container width by to get the x position
   const [difference, setDifference] = useState(activeIndex - viewIndex);
   const x = useSpring(calculateViewX(difference, containerWidth), {
     stiffness: 400,
@@ -99,7 +98,6 @@ const View = ({
 
   const xVelocity = useVelocity(x);
 
-  // The closer the view is to the center, the more opaque it is
   const opacity = useTransform(
     x,
     [-containerWidth * 0.6, 0, containerWidth * 0.6],
@@ -144,7 +142,7 @@ const Tabs = ({
   onTabChange: (tab: string) => void;
 }) => {
   return (
-    <ul className="backdrop-blur-xl max-w-100 bg-white/40 ring ring-white/50 outline outline-white/20 rounded-2xl shadow-xl flex p-0 w-full m-0 list-none">
+    <ul className="backdrop-blur-xl font-poppins w-fit bg-white/40 ring ring-white/50 outline outline-white/20 rounded-2xl min-w-50 shadow-xl flex p-0 m-0 list-none">
       {tabs.map((tab, idx) => {
         const liPaddingClass =
           idx === 0
@@ -156,10 +154,10 @@ const Tabs = ({
         return (
           <motion.li
             key={tab.id}
-            className={`flex cursor-pointer flex-grow ${liPaddingClass}`}
+            className={`flex flex-grow ${liPaddingClass}`}
           >
             <motion.button
-              className={`relative w-full p-2 flex justify-center items-center text-[14px] rounded-[8px]`}
+              className={`relative w-full p-2 flex justify-center items-center text-[14px] rounded-xl cursor-pointer`}
               whileFocus={{
                 outline: "2px solid var(--accent)",
               }}
@@ -168,7 +166,7 @@ const Tabs = ({
               <span
                 className={`z-10 ${
                   activeTab === tab.id
-                    ? "text-[#f5f5f5]"
+                    ? "text-[#f5f5f5] font-semibold"
                     : "text-[var(--feint-text)]"
                 }`}
               >
@@ -184,7 +182,7 @@ const Tabs = ({
                     stiffness: 600,
                     damping: 40,
                   }}
-                  className="absolute inset-0 rounded-[8px]"
+                  className="absolute inset-0 rounded-xl"
                   style={{ backgroundColor: tab.color }}
                 />
               ) : null}
@@ -222,29 +220,17 @@ type Tab = {
 const tabs = [
   {
     id: "tab-1",
-    label: "Deploy",
+    label: "Active",
     color: "#ff0088",
-    component: DeployTab as React.ComponentType<{ tab: Tab }>,
+    component: Active as React.ComponentType<{ tab: Tab }>,
   },
   {
     id: "tab-2",
-    label: "DMs",
+    label: "Stopped",
     color: "#dd00ee",
-    description: "This is your DMs tab, where you can see all your recent DMs",
-  },
-  {
-    id: "tab-3",
-    label: "Activity",
-    color: "#9911ff",
+    component: Stopped as React.ComponentType<{ tab: Tab }>,
     description:
-      "This is your Activity tab, where you can see all your recent activity",
-  },
-  {
-    id: "tab-4",
-    label: "More",
-    color: "#0d63f8",
-    description:
-      "This is your More tab, where you can find a bunch of other stuff, like settings, help, etc.",
+      "This is your Stopped tab, where you can see all your recent stopped deployments",
   },
 ];
 
