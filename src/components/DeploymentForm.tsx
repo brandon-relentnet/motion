@@ -1,6 +1,7 @@
 import LoadingProgressBar from "./LoadingProgressBar";
 import MultiStateBadge from "./MultiStateBadge";
 import GlassCard from "./GlassCard";
+import Theme from "./Theme";
 
 export default function Deploy() {
   return (
@@ -55,6 +56,8 @@ export default function Deploy() {
           </label>
           <LoadingProgressBar />
           <MultiStateBadge />
+          <button className="btn btn-primary w-full">Deploy</button>
+          <Theme />
         </div>
       </GlassCard>
     </>
