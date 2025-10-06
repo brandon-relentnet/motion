@@ -7,7 +7,7 @@ export default function Deploy() {
   return (
     <>
       <GlassCard>
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 p-8">
           <h1 className="text-2xl font-poppins">Deploy a new container</h1>
           <label className="input">
             <svg

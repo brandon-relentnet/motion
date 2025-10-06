@@ -10,6 +10,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import Active from "../tabs/Active";
 import Stopped from "../tabs/Stopped";
+import GlassCard from "./GlassCard";
 
 export default function SmoothTabs() {
   const [activeTab, setActiveTab] = useState(tabs[0].id);
@@ -40,36 +41,34 @@ export default function SmoothTabs() {
 
   return (
     <div className="relative container flex flex-col gap-2 justify-center items-center w-full">
-      <div
-        id="views-container"
-        ref={viewsContainerRef}
-        style={{
-          backgroundImage:
-            "radial-gradient(120% 80% at 10% 0%, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0) 55%)",
-        }}
-        className="overflow-hidden relative w-full h-[300px] backdrop-blur-xl bg-white/40 ring ring-white/50 outline outline-white/20 rounded-2xl shadow-xl"
-      >
-        {isMounted &&
-          tabs.map((tab, idx) => (
-            <View
-              key={tab.id}
-              containerWidth={viewsContainerWidth}
-              viewIndex={idx}
-              activeIndex={tabs.findIndex((t) => t.id === activeTab)}
-            >
-              {(() => {
-                const Component = (tab as any).component as
-                  | React.ComponentType<{ tab: Tab }>
-                  | undefined;
-                return Component ? (
-                  <Component tab={tab} />
-                ) : (
-                  <DummyTabContent tab={tab} />
-                );
-              })()}
-            </View>
-          ))}
-      </div>
+      <GlassCard>
+        <div
+          id="views-container"
+          ref={viewsContainerRef}
+          className="overflow-hidden relative w-full h-[300px]"
+        >
+          {isMounted &&
+            tabs.map((tab, idx) => (
+              <View
+                key={tab.id}
+                containerWidth={viewsContainerWidth}
+                viewIndex={idx}
+                activeIndex={tabs.findIndex((t) => t.id === activeTab)}
+              >
+                {(() => {
+                  const Component = (tab as any).component as
+                    | React.ComponentType<{ tab: Tab }>
+                    | undefined;
+                  return Component ? (
+                    <Component tab={tab} />
+                  ) : (
+                    <DummyTabContent tab={tab} />
+                  );
+                })()}
+              </View>
+            ))}
+        </div>
+      </GlassCard>
       <Tabs
         tabs={tabs}
         activeTab={activeTab}
@@ -125,7 +124,7 @@ const View = ({
       }}
       className="absolute inset-0 p-2 origin-center transform-gpu will-change-transform isolate"
     >
-      <div className="w-full h-full py-8 px-9 box-border flex flex-col gap-3">
+      <div className="w-full h-full p-8 box-border flex flex-col gap-3">
         {children}
       </div>
     </motion.div>
@@ -142,55 +141,57 @@ const Tabs = ({
   onTabChange: (tab: string) => void;
 }) => {
   return (
-    <ul className="backdrop-blur-xl font-poppins w-fit bg-white/40 ring ring-white/50 outline outline-white/20 rounded-2xl min-w-50 shadow-xl flex p-0 m-0 list-none">
-      {tabs.map((tab, idx) => {
-        const liPaddingClass =
-          idx === 0
-            ? "py-1 pr-0 pl-1"
-            : idx === tabs.length - 1
-            ? "py-1 pr-1 pl-0"
-            : "p-1";
+    <GlassCard>
+      <ul className="font-poppins w-fit min-w-50 flex p-0 m-0 list-none">
+        {tabs.map((tab, idx) => {
+          const liPaddingClass =
+            idx === 0
+              ? "py-1 pr-0 pl-1"
+              : idx === tabs.length - 1
+                ? "py-1 pr-1 pl-0"
+                : "p-1";
 
-        return (
-          <motion.li
-            key={tab.id}
-            className={`flex flex-grow ${liPaddingClass}`}
-          >
-            <motion.button
-              className={`relative w-full p-2 flex justify-center items-center text-[14px] rounded-xl cursor-pointer`}
-              whileFocus={{
-                outline: "2px solid var(--accent)",
-              }}
-              onClick={() => onTabChange(tab.id)}
+          return (
+            <motion.li
+              key={tab.id}
+              className={`flex flex-grow ${liPaddingClass}`}
             >
-              <span
-                className={`z-10 ${
-                  activeTab === tab.id
-                    ? "text-[#f5f5f5] font-semibold"
-                    : "text-[var(--feint-text)]"
-                }`}
+              <motion.button
+                className={`relative w-full p-2 flex justify-center items-center text-[14px] card cursor-pointer`}
+                whileFocus={{
+                  outline: "2px solid var(--accent)",
+                }}
+                onClick={() => onTabChange(tab.id)}
               >
-                {tab.label}
-              </span>
+                <span
+                  className={`z-10 ${
+                    activeTab === tab.id
+                      ? "text-[#f5f5f5] font-semibold"
+                      : "text-[var(--feint-text)]"
+                  }`}
+                >
+                  {tab.label}
+                </span>
 
-              {tab.id === activeTab ? (
-                <motion.span
-                  layoutId="activeTab"
-                  id="activeTab"
-                  transition={{
-                    type: "spring",
-                    stiffness: 600,
-                    damping: 40,
-                  }}
-                  className="absolute inset-0 rounded-xl"
-                  style={{ backgroundColor: tab.color }}
-                />
-              ) : null}
-            </motion.button>
-          </motion.li>
-        );
-      })}
-    </ul>
+                {tab.id === activeTab ? (
+                  <motion.span
+                    layoutId="activeTab"
+                    id="activeTab"
+                    transition={{
+                      type: "spring",
+                      stiffness: 600,
+                      damping: 40,
+                    }}
+                    className="absolute inset-0 card"
+                    style={{ backgroundColor: tab.color }}
+                  />
+                ) : null}
+              </motion.button>
+            </motion.li>
+          );
+        })}
+      </ul>
+    </GlassCard>
   );
 };
 

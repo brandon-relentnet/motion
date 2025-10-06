@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
+import { THEMES } from "../lib/themes.ts";
 
-const THEMES = ["retro", "cyberpunk", "valentine", "aqua", "scrollr"] as const;
 type Theme = (typeof THEMES)[number];
 
-export default function App() {
+export default function Theme() {
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === "undefined") return "retro";
     const stored = localStorage.getItem("theme");
@@ -20,7 +20,7 @@ export default function App() {
 
   return (
     <div className="flex items-start">
-      <div className="dropdown">
+      <div className="dropdown ">
         <div tabIndex={0} role="button" className="btn m-1">
           Theme
           <svg
@@ -36,7 +36,7 @@ export default function App() {
 
         <ul
           tabIndex={0}
-          className="dropdown-content bg-base-300 rounded-box z-[1] w-52 p-2 shadow-2xl"
+          className="dropdown-content bg-base-300 rounded-box z-[1] w-52 h-72 overflow-auto p-2 shadow-2xl"
         >
           {THEMES.map((t) => (
             <li key={t}>

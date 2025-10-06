@@ -6,6 +6,21 @@
     exclude: rootscrollgutter;
 }
 
+@custom-variant dark (&:where([data-theme=dark] *),
+    &:where([data-theme=synthwave] *),
+    &:where([data-theme=halloween] *),
+    &:where([data-theme=forest] *),
+    &:where([data-theme=aqua] *),
+    &:where([data-theme=black] *),
+    &:where([data-theme=luxury] *),
+    &:where([data-theme=dracula] *),
+    &:where([data-theme=business] *),
+    &:where([data-theme=night] *),
+    &:where([data-theme=coffee] *),
+    &:where([data-theme=dim] *),
+    &:where([data-theme=sunset] *),
+    &:where([data-theme=abyss] *));
+
 @plugin "daisyui/theme" {
     name: "scrollr";
     default: true;

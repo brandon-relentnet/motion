@@ -2,13 +2,7 @@ import type { ReactNode } from "react";
 
 export default function GlassCard({ children }: { children?: ReactNode }) {
   return (
-    <div
-      className="p-6 container w-full backdrop-blur-xl bg-white/40 ring ring-white/50 outline outline-white/20 rounded-2xl shadow-xl"
-      style={{
-        backgroundImage:
-          "radial-gradient(120% 80% at 10% 0%, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0) 55%)",
-      }}
-    >
+    <div className="card w-full backdrop-blur-[100px] dark:bg-black/30 bg-white/30 shadow-xl bg-no-repeat bg-[radial-gradient(120%_80%_at_10%_0%,rgba(255,255,255,0.25)_0%,rgba(255,255,255,0)_55%)] dark:bg-[radial-gradient(120%_80%_at_10%_0%,rgba(99,102,241,0.12)_0%,rgba(99,102,241,0)_55%)]">
       {children}
     </div>
   );
