@@ -3,7 +3,11 @@
 import { motion, MotionConfig } from "motion/react";
 import { type PropsWithChildren, useId, useState } from "react";
 
-function Item({ header, children }: PropsWithChildren<{ header: string }>) {
+function Item({
+  header,
+  children,
+  subheader,
+}: PropsWithChildren<{ header: string; subheader?: string }>) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasFocus, setHasFocus] = useState(false);
   const id = useId();
@@ -13,7 +17,8 @@ function Item({ header, children }: PropsWithChildren<{ header: string }>) {
       <motion.section
         initial={false}
         animate={isOpen ? "open" : "closed"}
-        className="rounded-field w-full relative border-1 border-base-content/20"
+        className="rounded-field w-full relative border-base-content/20"
+        style={{ borderWidth: "var(--border)" }}
       >
         <h3>
           <motion.button
@@ -25,7 +30,18 @@ function Item({ header, children }: PropsWithChildren<{ header: string }>) {
             onFocus={onlyKeyboardFocus(() => setHasFocus(true))}
             onBlur={() => setHasFocus(false)}
           >
-            <span>{header}</span> <ChevronDownIcon />
+            <span>
+              {header}{" "}
+              {subheader && (
+                <span className="text-base-content/50 ml-1">{subheader}</span>
+              )}
+            </span>{" "}
+            <div className="flex items-center gap-2">
+              {header === "Variables" && (
+                <span className="badge badge-neutral badge-xs">Optional</span>
+              )}
+              <ChevronDownIcon />
+            </div>
             {hasFocus && (
               <motion.div layoutId="focus-ring" className="focus-ring" />
             )}
@@ -68,19 +84,29 @@ function Item({ header, children }: PropsWithChildren<{ header: string }>) {
   );
 }
 
-export default function Accordion() {
+export default function Accordion({
+  frameworksEnabled = true,
+}: {
+  frameworksEnabled?: boolean;
+}) {
   return (
     <>
       <div className="w-full flex flex-col gap-2">
-        <Item header="Framework Presets">
-          <div className="px-3 pb-3 pt-1">
-            <textarea
-              className="textarea w-full"
-              placeholder="VARS=***"
-            ></textarea>
-          </div>
-        </Item>
-        <Item header="Environment Variables">
+        {frameworksEnabled && (
+          <Item header="Framework" subheader="Vite">
+            <div className="px-3 pb-3 pt-1">
+              <ul className="menu bg-base-200 rounded-box w-full">
+                <li>
+                  <a>Vite</a>
+                </li>
+                <li>
+                  <a>NextJS</a>
+                </li>
+              </ul>
+            </div>
+          </Item>
+        )}
+        <Item header="Variables" subheader="VARS=***">
           <div className="px-3 pb-3 pt-1">
             <textarea
               className="textarea w-full"

@@ -4,6 +4,7 @@ import { AnimatePresence, motion, usePresenceData } from "motion/react";
 import { forwardRef, useEffect, useState } from "react";
 import DeploymentForm from "./DeploymentForm";
 import EditForm from "./EditForm";
+import CategoriesForm from "./CategoriesForm";
 
 const slides = [
   {
@@ -16,6 +17,11 @@ const slides = [
     label: "ACTIVE_TAB",
     component: EditForm as React.ComponentType<{}>,
   },
+  {
+    id: 3,
+    label: "CATEGORIES_TAB",
+    component: CategoriesForm as React.ComponentType<{}>,
+  },
 ];
 
 export default function UsePresenceData({ activeTab }: { activeTab: string }) {
@@ -26,9 +32,12 @@ export default function UsePresenceData({ activeTab }: { activeTab: string }) {
     if (activeTab === "tab-1") {
       setSelectedItem(slides[0]);
       setDirection(1);
+    } else if (activeTab === "tab-4") {
+      setSelectedItem(slides[2]);
+      setDirection(1);
     } else {
       setSelectedItem(slides[1]);
-      setDirection(-1);
+      setDirection(1);
     }
   }, [activeTab]);
 
@@ -53,17 +62,18 @@ const Slide = forwardRef(function Slide(
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: direction * 50 }}
+      initial={{ opacity: 0, y: direction * 200 }}
       animate={{
         opacity: 1,
         y: 0,
         transition: {
+          delay: 0.1,
           type: "spring",
           ...SLIDE_SPRING,
         },
       }}
-      exit={{ opacity: 0, y: direction * -50 }}
-      className="relative card w-full"
+      exit={{ opacity: 0, y: direction * -200 }}
+      className="relative card w/full"
     >
       <Component />
     </motion.div>

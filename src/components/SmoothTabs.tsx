@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import Active from "../tabs/Active";
 import Stopped from "../tabs/Stopped";
 import Deploy from "../tabs/Deploy";
+import Categories from "../tabs/Categories";
 
 type SmoothTabsProps = {
   onActiveTabChange?: (tabId: string) => void;
@@ -226,8 +227,7 @@ const tabs = [
     id: "tab-4",
     label: "+",
     color: "bg-accent",
-    description:
-      "Add custom tabs with custom content and components to fit your needs",
+    component: Categories as React.ComponentType<{ tab: Tab }>,
   },
 ];
 
