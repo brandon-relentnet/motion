@@ -1,10 +1,10 @@
 import LoadingProgressBar from "./LoadingProgressBar";
 import MultiStateBadge from "./MultiStateBadge";
 
-export default function DeploymentForm() {
+export default function EditForm() {
   return (
     <div className="flex flex-col gap-4 w-full">
-      <h1 className="text-2xl font-poppins">Deploy a new container</h1>
+      <h1 className="text-2xl font-poppins">Edit container</h1>
       <div className="flex gap-2 flex-col justify-evenly items-center w-full">
         <label className="input w-full">
           Name

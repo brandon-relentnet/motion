@@ -12,10 +12,16 @@ import Active from "../tabs/Active";
 import Stopped from "../tabs/Stopped";
 import Deploy from "../tabs/Deploy";
 
-export default function SmoothTabs() {
+type SmoothTabsProps = {
+  onActiveTabChange?: (tabId: string) => void;
+  fullWidth?: boolean;
+};
+
+export const DEPLOY_TAB_ID = "tab-1";
+
+export default function SmoothTabs({ onActiveTabChange }: SmoothTabsProps) {
   const [activeTab, setActiveTab] = useState(tabs[0].id);
 
-  // Render Views only after mount since container width needs to be measured first
   const isMounted = useMounted();
 
   const viewsContainerRef = useRef<HTMLDivElement>(null);
@@ -29,7 +35,6 @@ export default function SmoothTabs() {
       }
     };
 
-    // Initial measurement
     updateWidth();
 
     window.addEventListener("resize", updateWidth);
@@ -39,8 +44,14 @@ export default function SmoothTabs() {
     };
   }, [viewsContainerWidth]);
 
+  useEffect(() => {
+    onActiveTabChange?.(activeTab);
+  }, [activeTab, onActiveTabChange]);
+
   return (
-    <div className="relative container flex flex-col gap-2 justify-center items-center lg:w-2/3 w-full">
+    <div
+      className={`relative container flex flex-col gap-2 justify-center items-center w-full`}
+    >
       <div
         id="views-container"
         ref={viewsContainerRef}
@@ -210,7 +221,7 @@ type Tab = {
 };
 const tabs = [
   {
-    id: "tab-1",
+    id: DEPLOY_TAB_ID,
     label: "Deploy",
     color: "bg-primary",
     component: Deploy as React.ComponentType<{ tab: Tab }>,
