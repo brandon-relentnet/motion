@@ -21,9 +21,9 @@ export default function LoadingProgressBar() {
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <div className="h-5 relative rounded-xl overflow-hidden w-full bg-white/50">
+      <div className="h-5 relative rounded-box overflow-hidden w-full bg-base-200">
         <motion.div
-          className="origin-left h-full bg-gradient-to-r from-sky-300 via-indigo-300 to-violet-300 w-full"
+          className="origin-left h-full bg-primary w-full rounded-box"
           style={{ scaleX: progress }}
         />
       </div>

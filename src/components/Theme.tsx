@@ -36,7 +36,7 @@ export default function Theme() {
 
         <ul
           tabIndex={0}
-          className="dropdown-content dark:bg-black/30 rounded-box z-[1] w-52 h-72 overflow-auto p-2 backdrop-blur-[100px] relative"
+          className="dropdown-content p-2 w-52 h-72 rounded-box overflow-auto z-[50] bg-base-300 shadow-2xl"
         >
           {THEMES.map((t) => (
             <li key={t}>
@@ -44,7 +44,7 @@ export default function Theme() {
                 <input
                   type="radio"
                   name="theme-dropdown"
-                  className="theme-controller btn btn-sm btn-block btn-ghost justify-start"
+                  className={`theme-controller btn btn-sm btn-block justify-start ${theme === t ? "" : "btn-ghost"}`}
                   aria-label={t.charAt(0).toUpperCase() + t.slice(1)}
                   value={t}
                   checked={theme === t}

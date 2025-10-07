@@ -94,7 +94,7 @@ function Badge({ state }: { state: BadgeState }) {
     <div className="flex">
       <motion.div
         ref={badgeRef}
-        className={`transition-colors duration-150 bg-gradient-to-br from-sky-300/40 via-indigo-300/40 to-violet-300/40 hover:bg-gradient-to-br hover:from-sky-300/30 hover:via-indigo-300/30 hover:to-violet-300/30 cursor-pointer backdrop-blur-2xl text-slate-900 font-poppins flex overflow-hidden items-center justify-center py-3 px-5 rounded-xl shadow-sm ${gapClass}`}
+        className={`transition-colors btn btn-primary font-medium duration-150 cursor-pointer font-poppins flex overflow-hidden items-center justify-center ${gapClass}`}
         style={{ willChange: "transform, filter" }}
       >
         <Icon state={state} />

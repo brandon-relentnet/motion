@@ -9,7 +9,7 @@ export const Route = createFileRoute("/")({
 function Index() {
   return (
     <div className="px-8 min-h-screen flex justify-center items-center flex-col gap-4">
-      <div className="flex gap-8 w-full">
+      <div className="lg:flex-row flex flex-col gap-8 w-full justify-center items-center max-w-[1600px]">
         <DeploymentForm />
         <SmoothTabs />
       </div>

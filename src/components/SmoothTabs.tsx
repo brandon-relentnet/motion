@@ -10,7 +10,6 @@ import {
 import { useEffect, useRef, useState } from "react";
 import Active from "../tabs/Active";
 import Stopped from "../tabs/Stopped";
-import GlassCard from "./GlassCard";
 
 export default function SmoothTabs() {
   const [activeTab, setActiveTab] = useState(tabs[0].id);
@@ -40,35 +39,33 @@ export default function SmoothTabs() {
   }, [viewsContainerWidth]);
 
   return (
-    <div className="relative container flex flex-col gap-2 justify-center items-center w-full">
-      <GlassCard>
-        <div
-          id="views-container"
-          ref={viewsContainerRef}
-          className="overflow-hidden relative w-full h-[300px]"
-        >
-          {isMounted &&
-            tabs.map((tab, idx) => (
-              <View
-                key={tab.id}
-                containerWidth={viewsContainerWidth}
-                viewIndex={idx}
-                activeIndex={tabs.findIndex((t) => t.id === activeTab)}
-              >
-                {(() => {
-                  const Component = (tab as any).component as
-                    | React.ComponentType<{ tab: Tab }>
-                    | undefined;
-                  return Component ? (
-                    <Component tab={tab} />
-                  ) : (
-                    <DummyTabContent tab={tab} />
-                  );
-                })()}
-              </View>
-            ))}
-        </div>
-      </GlassCard>
+    <div className="relative container flex flex-col gap-2 justify-center items-center lg:w-2/3 w-full">
+      <div
+        id="views-container"
+        ref={viewsContainerRef}
+        className="overflow-hidden relative w-full min-h-[500px] bg-base-200 p-4 rounded-box"
+      >
+        {isMounted &&
+          tabs.map((tab, idx) => (
+            <View
+              key={tab.id}
+              containerWidth={viewsContainerWidth}
+              viewIndex={idx}
+              activeIndex={tabs.findIndex((t) => t.id === activeTab)}
+            >
+              {(() => {
+                const Component = (tab as any).component as
+                  | React.ComponentType<{ tab: Tab }>
+                  | undefined;
+                return Component ? (
+                  <Component tab={tab} />
+                ) : (
+                  <DummyTabContent tab={tab} />
+                );
+              })()}
+            </View>
+          ))}
+      </div>
       <Tabs
         tabs={tabs}
         activeTab={activeTab}
@@ -141,57 +138,55 @@ const Tabs = ({
   onTabChange: (tab: string) => void;
 }) => {
   return (
-    <GlassCard>
-      <ul className="font-poppins w-fit min-w-50 flex p-0 m-0 list-none">
-        {tabs.map((tab, idx) => {
-          const liPaddingClass =
-            idx === 0
-              ? "py-1 pr-0 pl-1"
-              : idx === tabs.length - 1
-                ? "py-1 pr-1 pl-0"
-                : "p-1";
+    <ul className="font-poppins w-fit min-w-50 flex p-0 m-0 list-none">
+      {tabs.map((tab, idx) => {
+        const liPaddingClass =
+          idx === 0
+            ? "py-1 pr-0 pl-1"
+            : idx === tabs.length - 1
+              ? "py-1 pr-1 pl-0"
+              : "p-1";
 
-          return (
-            <motion.li
-              key={tab.id}
-              className={`flex flex-grow ${liPaddingClass}`}
+        return (
+          <motion.li
+            key={tab.id}
+            className={`flex flex-grow ${liPaddingClass}`}
+          >
+            <motion.button
+              className={`relative w-full py-2 px-4 flex justify-center items-center text-[14px] card cursor-pointer`}
+              whileFocus={{
+                outline: "2px solid var(--accent)",
+              }}
+              onClick={() => onTabChange(tab.id)}
             >
-              <motion.button
-                className={`relative w-full py-2 px-4 flex justify-center items-center text-[14px] card cursor-pointer`}
-                whileFocus={{
-                  outline: "2px solid var(--accent)",
-                }}
-                onClick={() => onTabChange(tab.id)}
+              <span
+                className={`z-10 transition duration-150 ${
+                  activeTab === tab.id
+                    ? "text-[#f5f5f5]"
+                    : "text-[var(--feint-text)]"
+                }`}
               >
-                <span
-                  className={`z-10 transition duration-150 ${
-                    activeTab === tab.id
-                      ? "text-[#f5f5f5]"
-                      : "text-[var(--feint-text)]"
-                  }`}
-                >
-                  {tab.label}
-                </span>
+                {tab.label}
+              </span>
 
-                {tab.id === activeTab ? (
-                  <motion.span
-                    layoutId="activeTab"
-                    id="activeTab"
-                    transition={{
-                      type: "spring",
-                      stiffness: 600,
-                      damping: 40,
-                    }}
-                    className="absolute inset-0 card"
-                    style={{ backgroundColor: tab.color }}
-                  />
-                ) : null}
-              </motion.button>
-            </motion.li>
-          );
-        })}
-      </ul>
-    </GlassCard>
+              {tab.id === activeTab ? (
+                <motion.span
+                  layoutId="activeTab"
+                  id="activeTab"
+                  transition={{
+                    type: "spring",
+                    stiffness: 600,
+                    damping: 40,
+                  }}
+                  className="absolute inset-0 card"
+                  style={{ backgroundColor: tab.color }}
+                />
+              ) : null}
+            </motion.button>
+          </motion.li>
+        );
+      })}
+    </ul>
   );
 };
 
