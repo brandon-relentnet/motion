@@ -1,3 +1,4 @@
+import Accordion from "./Accordian";
 import LoadingProgressBar from "./LoadingProgressBar";
 import MultiStateBadge from "./MultiStateBadge";
 
@@ -23,11 +24,7 @@ export default function DeploymentForm() {
           <input type="text" className="grow" placeholder="src/app/" />
           <span className="badge badge-neutral badge-xs">Optional</span>
         </label>
-        <select defaultValue="Framework Preset" className="select w-full">
-          <option disabled={true}>Framework Preset</option>
-          <option>Vite</option>
-          <option>NextJS</option>
-        </select>
+        <Accordion />
       </div>
       <div className="flex gap-4 items-center">
         <div className="block w-full">
