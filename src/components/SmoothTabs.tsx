@@ -157,16 +157,16 @@ const Tabs = ({
               className={`flex flex-grow ${liPaddingClass}`}
             >
               <motion.button
-                className={`relative w-full p-2 flex justify-center items-center text-[14px] card cursor-pointer`}
+                className={`relative w-full py-2 px-4 flex justify-center items-center text-[14px] card cursor-pointer`}
                 whileFocus={{
                   outline: "2px solid var(--accent)",
                 }}
                 onClick={() => onTabChange(tab.id)}
               >
                 <span
-                  className={`z-10 ${
+                  className={`z-10 transition duration-150 ${
                     activeTab === tab.id
-                      ? "text-[#f5f5f5] font-semibold"
+                      ? "text-[#f5f5f5]"
                       : "text-[var(--feint-text)]"
                   }`}
                 >
@@ -232,6 +232,13 @@ const tabs = [
     component: Stopped as React.ComponentType<{ tab: Tab }>,
     description:
       "This is your Stopped tab, where you can see all your recent stopped deployments",
+  },
+  {
+    id: "tab-3",
+    label: "+",
+    color: "#7700ff",
+    description:
+      "Add custom tabs with custom content and components to fit your needs",
   },
 ];
 

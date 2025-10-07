@@ -36,7 +36,7 @@ export default function Theme() {
 
         <ul
           tabIndex={0}
-          className="dropdown-content bg-base-300 rounded-box z-[1] w-52 h-72 overflow-auto p-2 shadow-2xl"
+          className="dropdown-content dark:bg-black/30 rounded-box z-[1] w-52 h-72 overflow-auto p-2 backdrop-blur-[100px] relative"
         >
           {THEMES.map((t) => (
             <li key={t}>
