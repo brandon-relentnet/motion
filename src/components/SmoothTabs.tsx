@@ -10,6 +10,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import Active from "../tabs/Active";
 import Stopped from "../tabs/Stopped";
+import Deploy from "../tabs/Deploy";
 
 export default function SmoothTabs() {
   const [activeTab, setActiveTab] = useState(tabs[0].id);
@@ -178,8 +179,7 @@ const Tabs = ({
                     stiffness: 600,
                     damping: 40,
                   }}
-                  className="absolute inset-0 card"
-                  style={{ backgroundColor: tab.color }}
+                  className={`absolute inset-0 card ${tab.color}`}
                 />
               ) : null}
             </motion.button>
@@ -194,12 +194,7 @@ const DummyTabContent = ({ tab }: { tab: Tab }) => {
   return (
     <>
       <div className="flex gap-3 items-center">
-        <span
-          className="h-5 w-5 rounded-[16px]"
-          style={{
-            backgroundColor: tab.color,
-          }}
-        />
+        <span className={`h-5 w-5 rounded-box ${tab.color}`} />
         <h3 className="m-0">{tab.label}</h3>
       </div>
       <p className="text-[var(--feint-text)]">{tab.description}</p>
@@ -216,22 +211,26 @@ type Tab = {
 const tabs = [
   {
     id: "tab-1",
-    label: "Active",
-    color: "#ff0088",
-    component: Active as React.ComponentType<{ tab: Tab }>,
+    label: "Deploy",
+    color: "bg-primary",
+    component: Deploy as React.ComponentType<{ tab: Tab }>,
   },
   {
     id: "tab-2",
-    label: "Stopped",
-    color: "#dd00ee",
-    component: Stopped as React.ComponentType<{ tab: Tab }>,
-    description:
-      "This is your Stopped tab, where you can see all your recent stopped deployments",
+    label: "Active",
+    color: "bg-success",
+    component: Active as React.ComponentType<{ tab: Tab }>,
   },
   {
     id: "tab-3",
+    label: "Stopped",
+    color: "bg-error",
+    component: Stopped as React.ComponentType<{ tab: Tab }>,
+  },
+  {
+    id: "tab-4",
     label: "+",
-    color: "#7700ff",
+    color: "bg-accent",
     description:
       "Add custom tabs with custom content and components to fit your needs",
   },

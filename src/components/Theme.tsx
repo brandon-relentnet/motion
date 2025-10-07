@@ -1,21 +1,20 @@
 import { useEffect, useState } from "react";
-import { THEMES } from "../lib/themes.ts";
-
-type Theme = (typeof THEMES)[number];
+import {
+  THEMES,
+  applyThemePreference,
+  normalizeTheme,
+  persistThemePreference,
+  readThemePreference,
+} from "../lib/themes";
+import type { Theme } from "../lib/themes";
 
 export default function Theme() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "retro";
-    const stored = localStorage.getItem("theme");
-    return stored && THEMES.includes(stored as Theme)
-      ? (stored as Theme)
-      : "retro";
-  });
+  const [theme, setTheme] = useState<Theme>(readThemePreference);
 
   // Persist and apply to <html data-theme="...">
   useEffect(() => {
-    localStorage.setItem("theme", theme);
-    document.documentElement.setAttribute("data-theme", theme);
+    persistThemePreference(theme);
+    applyThemePreference(theme);
   }, [theme]);
 
   return (
@@ -48,7 +47,7 @@ export default function Theme() {
                   aria-label={t.charAt(0).toUpperCase() + t.slice(1)}
                   value={t}
                   checked={theme === t}
-                  onChange={(e) => setTheme(e.currentTarget.value as Theme)}
+                  onChange={(e) => setTheme(normalizeTheme(e.currentTarget.value))}
                 />
               </label>
             </li>

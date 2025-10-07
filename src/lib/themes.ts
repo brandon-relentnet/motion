@@ -36,6 +36,28 @@ export const THEMES = [
   "silk",
 ] as const;
 
+export type Theme = (typeof THEMES)[number];
+
+export const DEFAULT_THEME: Theme = "retro";
+
+export const normalizeTheme = (value?: string | null): Theme =>
+  value && THEMES.includes(value as Theme) ? (value as Theme) : DEFAULT_THEME;
+
+export const readThemePreference = (): Theme => {
+  if (typeof window === "undefined") return DEFAULT_THEME;
+  return normalizeTheme(window.localStorage.getItem("theme"));
+};
+
+export const persistThemePreference = (theme: Theme) => {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem("theme", theme);
+};
+
+export const applyThemePreference = (theme: Theme) => {
+  if (typeof document === "undefined") return;
+  document.documentElement.setAttribute("data-theme", theme);
+};
+
 export const THEME_COLORS: Record<
   (typeof THEMES)[number],
   [string, string, string, string]
