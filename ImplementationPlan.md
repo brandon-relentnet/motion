@@ -44,3 +44,4 @@
   - `DEPLOY_OUTPUT_DIR` to override where `dist/` assets are copied (defaults to `<repo>/deployments/<app>`).
   - `DEPLOY_BASE_URL` to decorate published apps with a browsable URL in the containers list.
   - `CONTAINER_PREFIX` (default `lecrev_`) to scope Docker lookups/actions to managed containers.
+  - `REVERSE_PROXY_NETWORK` to attach provisioned nginx containers to your proxy network when running `docker run`.

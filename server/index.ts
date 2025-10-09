@@ -469,7 +469,16 @@ async function copyDirectory(source: string, destination: string) {
 
 async function listDockerContainers(): Promise<AppInfo[]> {
   return new Promise((resolve, reject) => {
-    const child = spawn("docker", ["ps", "--all", "--format", "{{json .}}"], {
+    const args = [
+      "ps",
+      "--all",
+      "--filter",
+      `name=${containerPrefix}`,
+      "--format",
+      "{{json .}}",
+    ];
+
+    const child = spawn("docker", args, {
       stdio: ["ignore", "pipe", "pipe"],
     });
 

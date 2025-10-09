@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SmoothTabs, { DEPLOY_TAB_ID } from "../components/SmoothTabs";
 import UsePresenceData from "../components/UsePresence";
+import { useContainersStore } from "../stores/containersStore";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -9,6 +10,11 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const [activeTab, setActiveTab] = useState(DEPLOY_TAB_ID);
+  const fetchApps = useContainersStore((state) => state.fetchApps);
+
+  useEffect(() => {
+    void fetchApps();
+  }, [fetchApps]);
 
   return (
     <div className="px-8 min-h-screen flex justify-center items-center flex-col gap-4">
