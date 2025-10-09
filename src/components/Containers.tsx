@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useContainersStore,
   selectApps,
@@ -6,6 +6,7 @@ import {
   selectLoading,
 } from "../stores/containersStore";
 import type { AppInfo, ContainerState } from "../types/app";
+import AppSettingsModal from "./AppSettingsModal";
 
 type ContainersProps = {
   filter?: "running" | "stopped" | "all";
@@ -20,6 +21,7 @@ export default function Containers({
   const loading = useContainersStore(selectLoading);
   const error = useContainersStore(selectError);
   const fetchApps = useContainersStore((state) => state.fetchApps);
+  const [settingsApp, setSettingsApp] = useState<string | null>(null);
 
   useEffect(() => {
     if (!apps.length) {
@@ -77,7 +79,11 @@ export default function Containers({
             </thead>
             <tbody>
               {filteredApps.map((app) => (
-                <ContainerRow key={app.container} app={app} />
+                <ContainerRow
+                  key={app.container}
+                  app={app}
+                  onOpenSettings={() => setSettingsApp(app.name)}
+                />
               ))}
             </tbody>
           </table>
@@ -85,11 +91,12 @@ export default function Containers({
       ) : (
         <div className="text-sm text-base-content/60">No containers found.</div>
       )}
+      <AppSettingsModal app={settingsApp} onClose={() => setSettingsApp(null)} />
     </div>
   );
 }
 
-function ContainerRow({ app }: { app: AppInfo }) {
+function ContainerRow({ app, onOpenSettings }: { app: AppInfo; onOpenSettings: () => void }) {
   const runAction = useContainersStore((state) => state.runAction);
   const pending = useContainersStore(
     (state) => state.pendingActions[app.container] ?? null
@@ -136,6 +143,9 @@ function ContainerRow({ app }: { app: AppInfo }) {
       <td>
         <div className="flex flex-wrap gap-2">
           {renderActionButtons({ pending, appState: app.state, onAction: handleAction })}
+          <button className="btn btn-xs btn-outline" onClick={onOpenSettings}>
+            Settings
+          </button>
         </div>
       </td>
     </tr>

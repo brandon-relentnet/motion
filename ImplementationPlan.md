@@ -27,8 +27,8 @@
 2. Coordinate polling intervals between health and apps to avoid redundant requests.
 
 ### Phase 5 · Settings & Categories Enhancements
-1. Flesh out the Settings and Categories tabs using modular forms connected to stores/APIs once available.
-2. Add persistence or server calls for category management as backend endpoints come online.
+1. Add per-app settings (notes, owners, env/secrets) persisted via the new settings store and exposed through UI modals.
+2. Flesh out the Categories tab using modular forms connected to the persisted metadata once the API is ready.
 
 ## Guiding Principles
 - Prefer small PR-sized increments; each phase can be split into multiple commits if needed.

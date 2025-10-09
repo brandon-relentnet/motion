@@ -11,6 +11,11 @@ import {
   type DeploymentStatus,
   type HistoryEvent,
 } from "./historyStore";
+import {
+  readAppSettings,
+  writeAppSettings,
+  deleteAppSettings,
+} from "./settingsStore";
 
 const app = express();
 const port = Number.parseInt(process.env.API_PORT ?? process.env.PORT ?? "4000", 10);
@@ -232,6 +237,49 @@ app.post("/api/deploy", async (req, res) => {
     } catch (historyError) {
       console.error("[deploy] failed to append deployment record", historyError);
     }
+  }
+});
+
+app.get("/api/apps/:app/settings", async (req, res) => {
+  const appName = String(req.params.app);
+  try {
+    const settings = await readAppSettings(appName);
+    if (!settings) {
+      return res.status(404).json({ error: "Settings not found" });
+    }
+    res.json({ settings });
+  } catch (error) {
+    console.error("[settings] failed to read", error);
+    res.status(500).json({ error: "Failed to read settings" });
+  }
+});
+
+app.put("/api/apps/:app/settings", async (req, res) => {
+  const appName = String(req.params.app);
+  const payload = req.body ?? {};
+  try {
+    await writeAppSettings(appName, {
+      notes: typeof payload.notes === "string" ? payload.notes : undefined,
+      owner: typeof payload.owner === "string" ? payload.owner : undefined,
+      publicEnv: normalizeEnvMap(payload.publicEnv),
+      secrets: normalizeEnvMap(payload.secrets),
+    });
+    const settings = await readAppSettings(appName);
+    res.json({ settings });
+  } catch (error) {
+    console.error("[settings] failed to write", error);
+    res.status(500).json({ error: "Failed to update settings" });
+  }
+});
+
+app.delete("/api/apps/:app/settings", async (req, res) => {
+  const appName = String(req.params.app);
+  try {
+    await deleteAppSettings(appName);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("[settings] failed to delete", error);
+    res.status(500).json({ error: "Failed to delete settings" });
   }
 });
 
@@ -755,6 +803,19 @@ function eventTimestamp(event: HistoryEvent) {
     return new Date(event.startedAt);
   }
   return new Date(event.timestamp);
+}
+
+function normalizeEnvMap(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const entries = Object.entries(value as Record<string, unknown>)
+    .map(([key, val]) => [key.trim(), typeof val === "string" ? val : String(val ?? "")])
+    .filter(([key]) => key.length > 0);
+  if (!entries.length) return undefined;
+  const result: Record<string, string> = {};
+  for (const [key, val] of entries) {
+    result[key] = val;
+  }
+  return result;
 }
 
 async function recordContainerAction({
