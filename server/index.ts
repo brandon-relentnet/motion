@@ -132,6 +132,7 @@ app.post("/api/deploy", async (req, res) => {
     safeWrite("Deployment complete.\n");
     res.end();
   } catch (error) {
+    console.error("[deploy] deploy failed", error);
     const message = error instanceof Error ? error.message : String(error);
     safeWrite(`Deployment failed: ${message}\n`);
     res.destroy(new Error(message));
