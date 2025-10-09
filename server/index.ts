@@ -59,9 +59,12 @@ app.post("/api/deploy", async (req, res) => {
   let aborted = false;
   let activeProcess: ChildProcess | null = null;
 
-  req.on("close", () => {
-    aborted = true;
-    activeProcess?.kill("SIGTERM");
+  res.on("close", () => {
+    if (!res.writableEnded) {
+      aborted = true;
+      console.warn("[deploy] client disconnected before completion");
+      activeProcess?.kill("SIGTERM");
+    }
   });
 
   const safeWrite = (message: string) => {
