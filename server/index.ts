@@ -106,6 +106,7 @@ app.post("/api/deploy", async (req, res) => {
   if (!name || !repoUrl) {
     return res.status(400).json({ error: "Both name and repoUrl are required." });
   }
+  const formVariables = typeof req.body.variables === "string" ? req.body.variables : "";
 
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.setHeader("Transfer-Encoding", "chunked");
@@ -146,6 +147,11 @@ app.post("/api/deploy", async (req, res) => {
   let status: DeploymentStatus = "success";
   let errorMessage: string | undefined;
 
+  const savedSettings = await readAppSettings(name).catch(() => null);
+  const formEnv = parseEnvString(formVariables);
+  const buildEnv = { ...(savedSettings?.publicEnv ?? {}), ...(formEnv ?? {}) };
+  const secretEnv = savedSettings?.secrets ?? {};
+
   try {
     console.log("[deploy] entering git stage");
     console.log("[deploy] aborted before git stage?", aborted);
@@ -176,6 +182,8 @@ app.post("/api/deploy", async (req, res) => {
         onOutput: safeWrite,
         onStage: (marker) => safeWrite(`${marker}\n`),
         abortedRef: () => aborted,
+        env: buildEnv,
+        secrets: secretEnv,
       });
     }
 
@@ -471,12 +479,16 @@ async function runBuildPipeline({
   onOutput,
   onStage,
   abortedRef,
+  env,
+  secrets,
 }: {
   cwd: string;
   onProcess: (child: ChildProcess) => void;
   onOutput: (text: string) => void;
   onStage: (marker: string) => void;
   abortedRef: () => boolean;
+  env?: Record<string, string>;
+  secrets?: Record<string, string>;
 }) {
   onStage("== Build with Node (docker) ==");
   await runCommand({
@@ -487,6 +499,7 @@ async function runBuildPipeline({
     onOutput,
     abortedRef,
     label: "npm install",
+    env: { ...(env ?? {}), ...(secrets ?? {}) },
   });
 
   await runCommand({
@@ -497,6 +510,7 @@ async function runBuildPipeline({
     onOutput,
     abortedRef,
     label: "npm run build",
+    env: { ...(env ?? {}), ...(secrets ?? {}) },
   });
 }
 
@@ -508,6 +522,7 @@ async function runCommand({
   onOutput,
   abortedRef,
   label,
+  env,
 }: {
   command: string;
   args: string[];
@@ -516,6 +531,7 @@ async function runCommand({
   onOutput: (text: string) => void;
   abortedRef: () => boolean;
   label: string;
+  env?: Record<string, string>;
 }) {
   if (abortedRef()) {
     return;
@@ -527,7 +543,10 @@ async function runCommand({
     const child = spawn(command, args, {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
-      env: process.env,
+      env: {
+        ...process.env,
+        ...(env ?? {}),
+      },
     });
 
     onProcess(child);
@@ -816,6 +835,21 @@ function normalizeEnvMap(value: unknown): Record<string, string> | undefined {
     result[key] = val;
   }
   return result;
+}
+
+function parseEnvString(text: string) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!lines.length) return undefined;
+  const result: Record<string, string> = {};
+  for (const line of lines) {
+    const [key, ...rest] = line.split("=");
+    if (!key) continue;
+    result[key.trim()] = rest.join("=").trim();
+  }
+  return Object.keys(result).length ? result : undefined;
 }
 
 async function recordContainerAction({

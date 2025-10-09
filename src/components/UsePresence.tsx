@@ -3,12 +3,12 @@
 import { AnimatePresence, motion, usePresenceData } from "motion/react";
 import { forwardRef, useEffect, useState, type ComponentType } from "react";
 import DeploymentForm from "./DeploymentForm";
-import EditForm from "./EditForm";
+import ContainerSettingsPanel from "../tabs/ContainerSettingsPanel";
 import CategoriesForm from "./CategoriesForm";
 
 const SLIDE_COMPONENTS: Record<string, ComponentType> = {
   "tab-1": DeploymentForm,
-  "tab-2": EditForm,
+  "tab-2": ContainerSettingsPanel,
   "tab-3": CategoriesForm,
   "tab-4": CategoriesForm,
 };

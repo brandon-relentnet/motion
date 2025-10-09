@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import {
   useContainersStore,
   selectApps,
   selectError,
   selectLoading,
+  selectSelectedApp,
 } from "../stores/containersStore";
 import type { AppInfo, ContainerState } from "../types/app";
-import AppSettingsModal from "./AppSettingsModal";
 
 type ContainersProps = {
   filter?: "running" | "stopped" | "all";
@@ -21,7 +21,8 @@ export default function Containers({
   const loading = useContainersStore(selectLoading);
   const error = useContainersStore(selectError);
   const fetchApps = useContainersStore((state) => state.fetchApps);
-  const [settingsApp, setSettingsApp] = useState<string | null>(null);
+  const selectedApp = useContainersStore(selectSelectedApp);
+  const setSelectedApp = useContainersStore((state) => state.setSelectedApp);
 
   useEffect(() => {
     if (!apps.length) {
@@ -82,7 +83,8 @@ export default function Containers({
                 <ContainerRow
                   key={app.container}
                   app={app}
-                  onOpenSettings={() => setSettingsApp(app.name)}
+                  selected={selectedApp === app.name}
+                  onSelect={() => setSelectedApp(app.name)}
                 />
               ))}
             </tbody>
@@ -91,12 +93,19 @@ export default function Containers({
       ) : (
         <div className="text-sm text-base-content/60">No containers found.</div>
       )}
-      <AppSettingsModal app={settingsApp} onClose={() => setSettingsApp(null)} />
     </div>
   );
 }
 
-function ContainerRow({ app, onOpenSettings }: { app: AppInfo; onOpenSettings: () => void }) {
+function ContainerRow({
+  app,
+  selected,
+  onSelect,
+}: {
+  app: AppInfo;
+  selected: boolean;
+  onSelect: () => void;
+}) {
   const runAction = useContainersStore((state) => state.runAction);
   const pending = useContainersStore(
     (state) => state.pendingActions[app.container] ?? null
@@ -116,7 +125,12 @@ function ContainerRow({ app, onOpenSettings }: { app: AppInfo; onOpenSettings: (
   const statusClass = statusBadge(app.state);
 
   return (
-    <tr>
+    <tr
+      className={selected ? "bg-base-200" : ""}
+      onClick={() => onSelect()}
+      role="button"
+      style={{ cursor: "pointer" }}
+    >
       <td className="whitespace-nowrap">
         <div className="flex flex-col">
           <span className="font-medium">{app.name}</span>
@@ -142,10 +156,11 @@ function ContainerRow({ app, onOpenSettings }: { app: AppInfo; onOpenSettings: (
       </td>
       <td>
         <div className="flex flex-wrap gap-2">
-          {renderActionButtons({ pending, appState: app.state, onAction: handleAction })}
-          <button className="btn btn-xs btn-outline" onClick={onOpenSettings}>
-            Settings
-          </button>
+          {renderActionButtons({
+            pending,
+            appState: app.state,
+            onAction: handleAction,
+          })}
         </div>
       </td>
     </tr>
@@ -175,35 +190,50 @@ function renderActionButtons({
       <button
         className="btn btn-xs"
         disabled={isBusy || appState === "running"}
-        onClick={makeHandler("start")}
+        onClick={(event) => {
+          event.stopPropagation();
+          makeHandler("start")();
+        }}
       >
         {pending === "start" ? <Spinner /> : "Start"}
       </button>
       <button
         className="btn btn-xs"
         disabled={isBusy || appState === "exited"}
-        onClick={makeHandler("stop")}
+        onClick={(event) => {
+          event.stopPropagation();
+          makeHandler("stop")();
+        }}
       >
         {pending === "stop" ? <Spinner /> : "Stop"}
       </button>
       <button
         className="btn btn-xs"
         disabled={isBusy}
-        onClick={makeHandler("restart")}
+        onClick={(event) => {
+          event.stopPropagation();
+          makeHandler("restart")();
+        }}
       >
         {pending === "restart" ? <Spinner /> : "Restart"}
       </button>
       <button
         className="btn btn-xs btn-error"
         disabled={isBusy}
-        onClick={makeHandler("remove")}
+        onClick={(event) => {
+          event.stopPropagation();
+          makeHandler("remove")();
+        }}
       >
         {pending === "remove" ? <Spinner /> : "Remove"}
       </button>
       <button
         className="btn btn-xs btn-outline btn-error"
         disabled={isBusy}
-        onClick={makeHandler("remove", { purge: true })}
+        onClick={(event) => {
+          event.stopPropagation();
+          makeHandler("remove", { purge: true })();
+        }}
       >
         {pending === "purge" ? <Spinner /> : "Purge"}
       </button>

@@ -21,6 +21,8 @@ import {
   deployStream,
 } from "../lib/deployClient";
 import { useContainersStore } from "../stores/containersStore";
+import { useAppSettingsStore } from "../stores/appSettingsStore";
+import { envObjectToText } from "../lib/env";
 import { useDeployHistoryStore } from "../stores/deployHistoryStore";
 
 export default function DeploymentForm() {
@@ -59,6 +61,7 @@ export default function DeploymentForm() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
+  const fetchSettings = useAppSettingsStore((state) => state.fetchSettings);
 
   useEffect(() => {
     return () => {
@@ -66,6 +69,30 @@ export default function DeploymentForm() {
       controllerRef.current = null;
     };
   }, []);
+
+  const nameValue = useDeployFormStore((state) => state.name);
+  const variablesValue = useDeployFormStore((state) => state.variables);
+  const setDeployField = useDeployFormStore((state) => state.setField);
+
+  useEffect(() => {
+    const trimmed = nameValue.trim();
+    if (!trimmed) return;
+    if (variablesValue.trim().length > 0) return;
+    let cancelled = false;
+    void fetchSettings(trimmed)
+      .then((settings) => {
+        if (!settings || cancelled) return;
+        if (settings.publicEnv) {
+          setDeployField("variables", envObjectToText(settings.publicEnv));
+        }
+      })
+      .catch(() => {
+        /* ignore */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchSettings, nameValue, setDeployField, variablesValue]);
 
   const handleChange = useCallback(
     (field: "name" | "repoUrl" | "appPath" | "variables") =>

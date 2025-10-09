@@ -10,6 +10,8 @@ type ContainersState = {
   loading: boolean;
   error: string | null;
   pendingActions: Record<string, ContainerAction | null>;
+  selectedApp: string | null;
+  setSelectedApp: (app: string | null) => void;
   fetchApps: () => Promise<void>;
   runAction: (
     container: string,
@@ -23,6 +25,9 @@ export const useContainersStore = create<ContainersState>((set, get) => ({
   loading: false,
   error: null,
   pendingActions: {},
+  selectedApp: null,
+
+  setSelectedApp: (app) => set({ selectedApp: app }),
 
   fetchApps: async () => {
     set({ loading: true, error: null });
@@ -32,7 +37,19 @@ export const useContainersStore = create<ContainersState>((set, get) => ({
         throw new Error(`Failed to load containers (${response.status})`);
       }
       const data = (await response.json()) as { apps?: AppInfo[] };
-      set({ apps: data.apps ?? [], loading: false, error: null });
+      set((state) => {
+        const nextApps = data.apps ?? [];
+        let selectedApp = state.selectedApp;
+        if (!selectedApp || !nextApps.some((app) => app.name === selectedApp)) {
+          selectedApp = nextApps[0]?.name ?? null;
+        }
+        return {
+          apps: nextApps,
+          loading: false,
+          error: null,
+          selectedApp,
+        };
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       set({ loading: false, error: message });
@@ -40,6 +57,8 @@ export const useContainersStore = create<ContainersState>((set, get) => ({
   },
 
   runAction: async (container, action, options) => {
+    const appEntry = get().apps.find((app) => app.container === container);
+    const appName = appEntry?.name ?? container;
     const { pendingActions } = get();
     const pendingKey: ContainerAction = options?.purge ? "purge" : action;
     set({
@@ -63,9 +82,14 @@ export const useContainersStore = create<ContainersState>((set, get) => ({
       }
 
       if (action === "remove") {
-        set((state) => ({
-          apps: state.apps.filter((app) => app.container !== container),
-        }));
+        set((state) => {
+          const nextApps = state.apps.filter((app) => app.container !== container);
+          let selectedApp = state.selectedApp;
+          if (selectedApp === appName) {
+            selectedApp = nextApps[0]?.name ?? null;
+          }
+          return { apps: nextApps, selectedApp };
+        });
       } else {
         const data = (await response.json()) as { app: AppInfo };
         const updated = data.app;
@@ -94,3 +118,4 @@ export const selectLoading = (state: ContainersState) => state.loading;
 export const selectError = (state: ContainersState) => state.error;
 export const selectPendingAction = (container: string) =>
   (state: ContainersState) => state.pendingActions[container] ?? null;
+export const selectSelectedApp = (state: ContainersState) => state.selectedApp;
