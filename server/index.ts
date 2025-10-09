@@ -80,6 +80,7 @@ app.post("/api/deploy", async (req, res) => {
   const branch = typeof branchInput === "string" && branchInput.trim() ? branchInput.trim() : "main";
 
   const workspaceRoot = await mkdtemp(path.join(tmpdir(), "motion-deploy-"));
+  console.log("[deploy] workspace", workspaceRoot);
 
   try {
     safeWrite("== Git clone/update ==\n");
