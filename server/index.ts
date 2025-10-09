@@ -105,26 +105,16 @@ app.post("/api/deploy", async (req, res) => {
     console.log("[deploy] writing commit line");
     safeWrite(`Checked out commit: ${commit}\n`);
 
-    const stages = [
-      {
-        marker: "== Build with Node (docker) ==",
-        logs: [`Installing dependencies...`, `Running build script...`],
-      },
-      {
-        marker: "== Publish with Nginx ==",
-        logs: [`Uploading assets...`, `Reloading container...`],
-      },
-    ];
-
-    for (const stage of stages) {
-      if (aborted) break;
-      safeWrite(`${stage.marker}\n`);
-      for (const line of stage.logs) {
-        if (aborted) break;
-        safeWrite(`${line}\n`);
-        await sleep(600);
-      }
-      await sleep(400);
+    if (!aborted) {
+      await runBuildPipeline({
+        cwd: workspaceRoot,
+        onProcess: (child) => {
+          activeProcess = child;
+        },
+        onOutput: safeWrite,
+        onStage: (marker) => safeWrite(`${marker}\n`),
+        abortedRef: () => aborted,
+      });
     }
 
     if (aborted) {
@@ -200,10 +190,6 @@ app.use((_req, res) => {
 app.listen(port, () => {
   console.log(`API server listening on http://localhost:${port}`);
 });
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function upsertApp({
   name,
@@ -308,6 +294,93 @@ async function resolveCommit(directory: string): Promise<string> {
         return;
       }
       resolve(output.trim());
+    });
+  });
+}
+
+async function runBuildPipeline({
+  cwd,
+  onProcess,
+  onOutput,
+  onStage,
+  abortedRef,
+}: {
+  cwd: string;
+  onProcess: (child: ChildProcess) => void;
+  onOutput: (text: string) => void;
+  onStage: (marker: string) => void;
+  abortedRef: () => boolean;
+}) {
+  onStage("== Build with Node (docker) ==");
+  await runCommand({
+    command: "npm",
+    args: ["install"],
+    cwd,
+    onProcess,
+    onOutput,
+    abortedRef,
+    label: "npm install",
+  });
+
+  await runCommand({
+    command: "npm",
+    args: ["run", "build"],
+    cwd,
+    onProcess,
+    onOutput,
+    abortedRef,
+    label: "npm run build",
+  });
+
+  onStage("== Publish with Nginx ==");
+  onOutput("Preparing publication artifacts...\n");
+  onOutput("(TODO) Integrate with container publish pipeline.\n");
+}
+
+async function runCommand({
+  command,
+  args,
+  cwd,
+  onProcess,
+  onOutput,
+  abortedRef,
+  label,
+}: {
+  command: string;
+  args: string[];
+  cwd: string;
+  onProcess: (child: ChildProcess) => void;
+  onOutput: (text: string) => void;
+  abortedRef: () => boolean;
+  label: string;
+}) {
+  if (abortedRef()) {
+    return;
+  }
+
+  onOutput(`$ ${command} ${args.join(" ")}\n`);
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: process.env,
+    });
+
+    onProcess(child);
+
+    const forward = (buffer: Buffer) => onOutput(buffer.toString());
+    child.stdout.on("data", forward);
+    child.stderr.on("data", forward);
+
+    child.on("error", (error) => reject(error));
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`${label} exited with code ${code}`));
+      }
     });
   });
 }
