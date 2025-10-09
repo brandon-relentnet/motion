@@ -433,8 +433,14 @@ async function publishBuild({
 
   onOutput(`Copying build artifacts to ${destDir}\n`);
   await copyDirectory(sourceDist, destDir);
+  onOutput("Refreshing static container...\n");
 
-  onOutput("Reloading static content (simulated).\n");
+  await ensureStaticContainer({
+    containerName: container,
+    bundleDir: destDir,
+    network: process.env.REVERSE_PROXY_NETWORK,
+    onOutput,
+  });
 
   const url = buildAppUrl(name, baseUrl);
 
@@ -528,23 +534,37 @@ async function listDockerContainers(): Promise<AppInfo[]> {
   });
 }
 
-async function runDockerCommand(args: string[]): Promise<void> {
+async function runDockerCommand(
+  args: string[],
+  onOutput?: (text: string) => void,
+  ignoreFailure = false
+): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = spawn("docker", args, {
       stdio: ["ignore", "pipe", "pipe"],
     });
 
     let stderr = "";
+    child.stdout.on("data", (buffer) => {
+      const text = buffer.toString();
+      if (onOutput) {
+        onOutput(text);
+      }
+      console.log(`[docker ${args[0]}] ${text.trimEnd()}`);
+    });
     child.stderr.on("data", (buffer) => {
       const text = buffer.toString();
       stderr += text;
+      if (onOutput) {
+        onOutput(text);
+      }
       console.error(`[docker ${args[0]}] ${text.trimEnd()}`);
     });
 
     child.on("error", (error) => reject(error));
 
     child.on("close", (code) => {
-      if (code === 0) {
+      if (code === 0 || ignoreFailure) {
         resolve();
       } else {
         reject(new Error(stderr.trim() || `docker ${args.join(" ")} exited with code ${code}`));
@@ -573,6 +593,48 @@ function buildAppUrl(name: string, overrideBase?: string) {
   } catch (error) {
     console.warn("[deploy] invalid base URL", base, error);
     return undefined;
+  }
+}
+
+async function ensureStaticContainer({
+  containerName,
+  bundleDir,
+  network,
+  onOutput,
+}: {
+  containerName: string;
+  bundleDir: string;
+  network?: string;
+  onOutput: (text: string) => void;
+}) {
+  await runDockerCommandSafe(["rm", "-f", containerName], onOutput);
+
+  const args = [
+    "run",
+    "-d",
+    "--name",
+    containerName,
+    "--restart",
+    "unless-stopped",
+    "-v",
+    `${bundleDir}:/usr/share/nginx/html:ro`,
+  ];
+
+  if (network) {
+    args.push("--network", network);
+  }
+
+  args.push("nginx:alpine");
+
+  onOutput(`$ docker ${args.join(" ")}\n`);
+  await runDockerCommand(args, onOutput);
+}
+
+async function runDockerCommandSafe(args: string[], onOutput: (text: string) => void) {
+  try {
+    await runDockerCommand(args, onOutput, true);
+  } catch (error) {
+    console.warn(`[deploy] docker ${args.join(" ")} failed (ignored):`, error);
   }
 }
 
