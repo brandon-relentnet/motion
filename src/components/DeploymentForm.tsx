@@ -20,6 +20,7 @@ import {
   DEPLOY_STEP_MARKERS,
   deployStream,
 } from "../lib/deployClient";
+import { useContainersStore } from "../stores/containersStore";
 
 export default function DeploymentForm() {
   const {
@@ -136,6 +137,7 @@ export default function DeploymentForm() {
         "success",
         "Deployment finished. Review logs in the Deploy tab."
       );
+      void useContainersStore.getState().fetchApps();
     } catch (error) {
       const message =
         error instanceof Error
@@ -159,6 +161,7 @@ export default function DeploymentForm() {
     }
   }, [
     appendLog,
+    cancelLoading,
     completeLoading,
     completeSession,
     failSession,

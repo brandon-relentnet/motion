@@ -14,7 +14,7 @@ export default function Stopped({ tab }: { tab: Tab }) {
         <h3 className="m-0">{tab.label}</h3>
       </div>
       <p className="text-[var(--feint-text)]">{tab.description}</p>
-      <Containers stopped />
+      <Containers filter="stopped" />
     </>
   );
 }

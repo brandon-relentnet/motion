@@ -13,7 +13,7 @@ export default function Active({ tab }: { tab: Tab }) {
         <span className={`h-5 w-5 rounded-box ${tab.color}`} />
         <h3 className="m-0">{tab.label}</h3>
       </div>
-      <Containers />
+      <Containers filter="running" />
     </>
   );
 }
