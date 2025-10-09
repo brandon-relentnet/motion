@@ -110,6 +110,12 @@ export default function Deploy({ tab }: { tab: Tab }) {
                 </span>{" "}
                 {effectivePayload.repoUrl}
               </li>
+              {effectivePayload.branch && (
+                <li>
+                  <span className="font-medium text-base-content">Branch:</span>{" "}
+                  {effectivePayload.branch}
+                </li>
+              )}
               {effectivePayload.appPath && (
                 <li>
                   <span className="font-medium text-base-content">Path:</span>{" "}
@@ -122,6 +128,12 @@ export default function Deploy({ tab }: { tab: Tab }) {
                 </span>{" "}
                 {effectivePayload.framework.toUpperCase()}
               </li>
+              {effectivePayload.domain && (
+                <li>
+                  <span className="font-medium text-base-content">Domain:</span>{" "}
+                  {effectivePayload.domain}
+                </li>
+              )}
             </ul>
           ) : (
             <p className="text-sm text-base-content/70">

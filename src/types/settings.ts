@@ -5,4 +5,10 @@ export interface AppSettings {
   publicEnv?: Record<string, string>;
   secrets?: Record<string, string>;
   domain?: string;
+  repoUrl?: string;
+  branch?: string;
+  framework?: string;
+  appPath?: string;
+  lastCommit?: string;
+  lastDeployedAt?: string;
 }

@@ -9,6 +9,12 @@ export interface AppSettings {
   publicEnv?: Record<string, string>;
   secrets?: Record<string, string>;
   domain?: string;
+  repoUrl?: string;
+  branch?: string;
+  framework?: string;
+  appPath?: string;
+  lastCommit?: string;
+  lastDeployedAt?: string;
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -72,6 +78,7 @@ async function persistAllSettings(all: Record<string, AppSettings>) {
 }
 
 function normalizeSettings(settings: AppSettings): AppSettings {
+  const deployedAt = settings.lastDeployedAt ? new Date(settings.lastDeployedAt) : null;
   return {
     app: settings.app,
     notes: settings.notes?.trim() ? settings.notes.trim() : undefined,
@@ -79,6 +86,15 @@ function normalizeSettings(settings: AppSettings): AppSettings {
     publicEnv: sanitizeEnv(settings.publicEnv),
     secrets: sanitizeEnv(settings.secrets),
     domain: settings.domain?.trim() ? settings.domain.trim() : undefined,
+    repoUrl: settings.repoUrl?.trim() ? settings.repoUrl.trim() : undefined,
+    branch: settings.branch?.trim() ? settings.branch.trim() : undefined,
+    framework: settings.framework?.trim() ? settings.framework.trim() : undefined,
+    appPath: settings.appPath?.trim() ? settings.appPath.trim() : undefined,
+    lastCommit: settings.lastCommit?.trim() ? settings.lastCommit.trim() : undefined,
+    lastDeployedAt:
+      deployedAt && !Number.isNaN(deployedAt.getTime())
+        ? deployedAt.toISOString()
+        : undefined,
   };
 }
 

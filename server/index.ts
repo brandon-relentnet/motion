@@ -15,6 +15,7 @@ import {
   readAppSettings,
   writeAppSettings,
   deleteAppSettings,
+  type AppSettings,
 } from "./settingsStore";
 
 const app = express();
@@ -78,10 +79,32 @@ app.get("/api/deployments", async (req, res) => {
     const history = await readHistory();
     const appFilter = typeof req.query.app === "string" ? req.query.app.trim() : "";
     const limitParam = typeof req.query.limit === "string" ? Number.parseInt(req.query.limit, 10) : undefined;
+    const typeFilter = parseHistoryType(req.query.type);
+    const statusFilter = parseHistoryStatus(req.query.status);
+    const sinceFilter = parseDate(req.query.since);
+    const untilFilter = parseDate(req.query.until);
 
     let records = history;
     if (appFilter) {
       records = records.filter((record) => record.app === appFilter);
+    }
+
+    if (typeFilter !== "all") {
+      records = records.filter((record) =>
+        typeFilter === "deployment" ? record.kind === "deployment" : record.kind === "container-action"
+      );
+    }
+
+    if (statusFilter !== "all") {
+      records = records.filter((record) => matchesStatus(record, statusFilter));
+    }
+
+    if (sinceFilter) {
+      records = records.filter((record) => eventTimestamp(record).getTime() >= sinceFilter.getTime());
+    }
+
+    if (untilFilter) {
+      records = records.filter((record) => eventTimestamp(record).getTime() <= untilFilter.getTime());
     }
 
     records = records
@@ -259,12 +282,33 @@ app.post("/api/deploy", async (req, res) => {
       console.error("[deploy] failed to append deployment record", historyError);
     }
 
+    const settingsUpdate: Partial<AppSettings> = {
+      repoUrl,
+      framework,
+      branch,
+      appPath: typeof appPath === "string" && appPath.trim() ? appPath.trim() : undefined,
+    };
+
+    if (status === "success") {
+      settingsUpdate.lastCommit = commitSha;
+      settingsUpdate.lastDeployedAt = new Date(endedAt).toISOString();
+    }
+
+    if (formEnv) {
+      settingsUpdate.publicEnv = {
+        ...(savedSettings?.publicEnv ?? {}),
+        ...formEnv,
+      };
+    }
+
     if (normalizedFormDomain) {
-      try {
-        await writeAppSettings(name, { domain: normalizedFormDomain });
-      } catch (settingsError) {
-        console.error("[deploy] failed to persist domain", settingsError);
-      }
+      settingsUpdate.domain = normalizedFormDomain;
+    }
+
+    try {
+      await writeAppSettings(name, settingsUpdate);
+    } catch (settingsError) {
+      console.error("[deploy] failed to persist settings", settingsError);
     }
   }
 });
@@ -309,6 +353,46 @@ app.delete("/api/apps/:app/settings", async (req, res) => {
   } catch (error) {
     console.error("[settings] failed to delete", error);
     res.status(500).json({ error: "Failed to delete settings" });
+  }
+});
+
+app.get("/api/apps/:app/deploy-config", async (req, res) => {
+  const appName = String(req.params.app);
+  try {
+    const settings = await readAppSettings(appName);
+    const history = await readHistory();
+    const latestDeploy = history
+      .filter((event) => event.kind === "deployment" && event.app === appName)
+      .sort((a, b) => eventTimestamp(b).getTime() - eventTimestamp(a).getTime())
+      .at(0);
+
+    const repoUrl = settings?.repoUrl ?? latestDeploy?.repoUrl ?? "";
+    if (!repoUrl) {
+      return res
+        .status(404)
+        .json({ error: "No deployment configuration found for this app." });
+    }
+
+    const framework = settings?.framework ?? latestDeploy?.framework ?? "vite";
+    const branch = settings?.branch ?? latestDeploy?.branch ?? "main";
+    const domain = settings?.domain;
+    const appPath = settings?.appPath ?? null;
+    const variables = envMapToString(settings?.publicEnv);
+
+    res.json({
+      config: {
+        name: appName,
+        repoUrl,
+        appPath,
+        variables,
+        framework,
+        domain,
+        branch,
+      },
+    });
+  } catch (error) {
+    console.error("[deploy] failed to load deploy config", error);
+    res.status(500).json({ error: "Failed to load deploy configuration" });
   }
 });
 
@@ -420,6 +504,30 @@ function upsertApp({
     updatedAt: new Date().toISOString(),
     ...(url ? { url } : {}),
   });
+}
+
+function parseHistoryType(value: unknown): "all" | "deployment" | "action" {
+  if (value === "deployment") return "deployment";
+  if (value === "action") return "action";
+  return "all";
+}
+
+function parseHistoryStatus(value: unknown): "all" | "success" | "failed" | "cancelled" {
+  if (value === "success" || value === "failed" || value === "cancelled") {
+    return value;
+  }
+  return "all";
+}
+
+function parseDate(value: unknown): Date | null {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed;
 }
 
 async function runGitClone({
@@ -848,6 +956,21 @@ function eventTimestamp(event: HistoryEvent) {
   return new Date(event.timestamp);
 }
 
+function matchesStatus(
+  event: HistoryEvent,
+  filter: "success" | "failed" | "cancelled"
+) {
+  if (filter === "cancelled") {
+    return event.kind === "deployment" && event.status === "cancelled";
+  }
+
+  if (filter === "failed") {
+    return event.status === "failed";
+  }
+
+  return event.status === "success";
+}
+
 function normalizeEnvMap(value: unknown): Record<string, string> | undefined {
   if (!value || typeof value !== "object") return undefined;
   const entries = Object.entries(value as Record<string, unknown>)
@@ -874,6 +997,13 @@ function parseEnvString(text: string) {
     result[key.trim()] = rest.join("=").trim();
   }
   return Object.keys(result).length ? result : undefined;
+}
+
+function envMapToString(map?: Record<string, string>) {
+  if (!map) return "";
+  return Object.entries(map)
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
 }
 
 function normalizeDomainInput(value?: string | null) {

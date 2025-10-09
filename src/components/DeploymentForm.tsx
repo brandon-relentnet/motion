@@ -13,6 +13,7 @@ import MultiStateBadge from "./MultiStateBadge";
 import {
   useDeployFormStore,
   type DeployFormStatus,
+  type DeployPayload,
 } from "../stores/deployFormStore";
 import { useLoadingStore } from "../useLoadingStore";
 import { useDeploySessionStore } from "../stores/deploySessionStore";
@@ -74,7 +75,11 @@ export default function DeploymentForm() {
   const nameValue = useDeployFormStore((state) => state.name);
   const variablesValue = useDeployFormStore((state) => state.variables);
   const domainValue = useDeployFormStore((state) => state.domain);
+  const branchValue = useDeployFormStore((state) => state.branch);
   const setDeployField = useDeployFormStore((state) => state.setField);
+  const queuedPayload = useDeployFormStore((state) => state.queuedPayload);
+  const triggerVersion = useDeployFormStore((state) => state.triggerVersion);
+  const consumeTrigger = useDeployFormStore((state) => state.consumeTrigger);
 
   useEffect(() => {
     const trimmed = nameValue.trim();
@@ -89,6 +94,9 @@ export default function DeploymentForm() {
         if (settings.domain && domainValue.trim().length === 0) {
           setDeployField("domain", settings.domain);
         }
+        if (settings.branch && branchValue.trim().length === 0) {
+          setDeployField("branch", settings.branch);
+        }
       })
       .catch(() => {
         /* ignore */
@@ -96,10 +104,25 @@ export default function DeploymentForm() {
     return () => {
       cancelled = true;
     };
-  }, [fetchSettings, nameValue, setDeployField, variablesValue, domainValue]);
+  }, [
+    branchValue,
+    domainValue,
+    fetchSettings,
+    nameValue,
+    setDeployField,
+    variablesValue,
+  ]);
 
   const handleChange = useCallback(
-    (field: "name" | "repoUrl" | "appPath" | "variables" | "domain") =>
+    (
+      field:
+        | "name"
+        | "repoUrl"
+        | "appPath"
+        | "variables"
+        | "domain"
+        | "branch"
+    ) =>
       (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         clearFeedback();
         setField(field, event.target.value);
@@ -125,32 +148,39 @@ export default function DeploymentForm() {
     setIsSubmitting(false);
   }, [cancelLoading, clearFeedback, resetSession, setStatus]);
 
-  const runDeployment = useCallback(async () => {
-    if (isSubmitting || sessionRunning) {
-      return;
-    }
+  const runDeployment = useCallback(
+    async (forcedPayload?: DeployPayload) => {
+      if (isSubmitting || sessionRunning) {
+        return;
+      }
 
-    const result = submit();
-    if (!result.ok) {
-      return;
-    }
+      const result = forcedPayload
+        ? { ok: true, payload: forcedPayload }
+        : submit();
+      if (!result.ok) {
+        return;
+      }
 
-    const payload = result.payload;
-    setIsSubmitting(true);
-    setStatus("submitting", "Starting deployment…");
-    setLastPayload(payload);
-    startSession(payload);
-    startLoading();
-    setProgress(0.05);
+      const payload = result.payload;
+      setIsSubmitting(true);
+      clearFeedback();
+      const startMessage = forcedPayload
+        ? "Starting redeploy…"
+        : "Starting deployment…";
+      setStatus("submitting", startMessage);
+      setLastPayload(payload);
+      startSession(payload);
+      startLoading();
+      setProgress(0.05);
 
     const controller = new AbortController();
     controllerRef.current = controller;
 
-    try {
-      await deployStream(payload, {
-        signal: controller.signal,
-        onChunk: (chunk) => appendLog(chunk),
-        onStep: (step) => {
+      try {
+        await deployStream(payload, {
+          signal: controller.signal,
+          onChunk: (chunk) => appendLog(chunk),
+          onStep: (step) => {
           setSessionStep(step);
           const index = DEPLOY_STEP_MARKERS.findIndex(
             (marker) => marker.key === step
@@ -161,19 +191,19 @@ export default function DeploymentForm() {
           }
         },
         onCommit: (commit) => setCommit(commit),
-      });
+        });
 
-      completeSession();
-      completeLoading();
-      setStatus(
-        "success",
-        "Deployment finished. Review logs in the Deploy tab."
-      );
-      void useContainersStore.getState().fetchApps();
-      void useDeployHistoryStore.getState().fetchHistory();
-    } catch (error) {
-      const message =
-        error instanceof Error
+        completeSession();
+        completeLoading();
+        const successMessage = forcedPayload
+          ? "Redeploy finished. Review logs in the Deploy tab."
+          : "Deployment finished. Review logs in the Deploy tab.";
+        setStatus("success", successMessage);
+        void useContainersStore.getState().fetchApps();
+        void useDeployHistoryStore.getState().fetchHistory();
+      } catch (error) {
+        const message =
+          error instanceof Error
           ? error.name === "AbortError"
             ? "Deployment cancelled."
             : error.message
@@ -188,29 +218,36 @@ export default function DeploymentForm() {
       }
 
       failSession(message);
-    } finally {
-      controllerRef.current = null;
-      setIsSubmitting(false);
-    }
-  }, [
-    appendLog,
-    cancelLoading,
-    completeLoading,
-    completeSession,
-    failSession,
-    isSubmitting,
-    sessionRunning,
-    setCommit,
-    setError,
-    setLastPayload,
-    setProgress,
-    setSessionStep,
-    setStatus,
-    startLoading,
-    startSession,
-    resetLoading,
-    submit,
-  ]);
+      } finally {
+        controllerRef.current = null;
+        setIsSubmitting(false);
+      }
+    }, [
+      appendLog,
+      cancelLoading,
+      clearFeedback,
+      completeLoading,
+      completeSession,
+      failSession,
+      isSubmitting,
+      sessionRunning,
+      setCommit,
+      setError,
+      setLastPayload,
+      setProgress,
+      setSessionStep,
+      setStatus,
+      startLoading,
+      startSession,
+      resetLoading,
+      submit,
+    ]);
+
+  useEffect(() => {
+    if (!queuedPayload) return;
+    void runDeployment(queuedPayload);
+    consumeTrigger();
+  }, [consumeTrigger, queuedPayload, runDeployment, triggerVersion]);
 
   const handleStart = useCallback(() => {
     void runDeployment();

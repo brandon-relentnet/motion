@@ -7,6 +7,7 @@ import {
   selectSelectedApp,
 } from "../stores/containersStore";
 import type { AppInfo, ContainerState } from "../types/app";
+import { useDeploySessionStore } from "../stores/deploySessionStore";
 
 type ContainersProps = {
   filter?: "running" | "stopped" | "all";
@@ -113,9 +114,11 @@ function ContainerRow({
   onSelect: () => void;
 }) {
   const runAction = useContainersStore((state) => state.runAction);
+  const redeployApp = useContainersStore((state) => state.redeployApp);
   const pending = useContainersStore(
     (state) => state.pendingActions[app.container] ?? null
   );
+  const sessionRunning = useDeploySessionStore((state) => state.isRunning);
 
   const handleAction = async (
     action: "start" | "stop" | "restart" | "remove",
@@ -125,6 +128,14 @@ function ContainerRow({
       await runAction(app.container, action, options);
     } catch (error) {
       console.error("Container action failed", error);
+    }
+  };
+
+  const handleRedeploy = async () => {
+    try {
+      await redeployApp(app.name);
+    } catch (error) {
+      console.error("Container redeploy failed", error);
     }
   };
 
@@ -166,6 +177,8 @@ function ContainerRow({
             pending,
             appState: app.state,
             onAction: handleAction,
+            onRedeploy: handleRedeploy,
+            sessionRunning,
           })}
         </div>
       </td>
@@ -177,6 +190,8 @@ function renderActionButtons({
   pending,
   appState,
   onAction,
+  onRedeploy,
+  sessionRunning,
 }: {
   pending: string | null;
   appState: ContainerState;
@@ -184,6 +199,8 @@ function renderActionButtons({
     action: "start" | "stop" | "restart" | "remove",
     options?: { purge?: boolean }
   ) => void;
+  onRedeploy: () => void;
+  sessionRunning: boolean;
 }) {
   const isBusy = Boolean(pending);
   const makeHandler = (
@@ -193,6 +210,16 @@ function renderActionButtons({
 
   return (
     <>
+      <button
+        className="btn btn-xs btn-primary"
+        disabled={isBusy || sessionRunning}
+        onClick={(event) => {
+          event.stopPropagation();
+          onRedeploy();
+        }}
+      >
+        {pending === "update" ? <Spinner /> : "Update"}
+      </button>
       <button
         className="btn btn-xs"
         disabled={isBusy || appState === "running"}

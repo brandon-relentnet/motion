@@ -5,8 +5,17 @@ interface HistoryState {
   records: HistoryEvent[];
   loading: boolean;
   error: string | null;
-  fetchHistory: (params?: { app?: string; limit?: number }) => Promise<void>;
+  fetchHistory: (params?: HistoryQueryParams) => Promise<void>;
 }
+
+type HistoryQueryParams = {
+  app?: string;
+  limit?: number;
+  type?: "deployment" | "action";
+  status?: "success" | "failed" | "cancelled";
+  since?: string;
+  until?: string;
+};
 
 export const useDeployHistoryStore = create<HistoryState>((set) => ({
   records: [],
@@ -20,6 +29,10 @@ export const useDeployHistoryStore = create<HistoryState>((set) => ({
     if (typeof params?.limit === "number" && Number.isFinite(params.limit)) {
       query.set("limit", String(params.limit));
     }
+    if (params?.type) query.set("type", params.type);
+    if (params?.status) query.set("status", params.status);
+    if (params?.since) query.set("since", params.since);
+    if (params?.until) query.set("until", params.until);
 
     try {
       const response = await fetch(`/api/deployments${query.size ? `?${query.toString()}` : ""}`);

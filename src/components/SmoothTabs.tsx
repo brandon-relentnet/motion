@@ -8,20 +8,15 @@ import {
   useVelocity,
 } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { CONTAINERS_TAB_ID, DEPLOY_TAB_ID, HISTORY_TAB_ID, type TabId } from "../constants/tabs";
+import { useTabsStore } from "../stores/tabsStore";
 import ContainersTab from "../tabs/ContainersTab";
 import Deploy from "../tabs/Deploy";
-import Categories from "../tabs/Categories";
 import HistoryTab from "../tabs/HistoryTab";
 
-type SmoothTabsProps = {
-  onActiveTabChange?: (tabId: string) => void;
-  fullWidth?: boolean;
-};
-
-export const DEPLOY_TAB_ID = "tab-1";
-
-export default function SmoothTabs({ onActiveTabChange }: SmoothTabsProps) {
-  const [activeTab, setActiveTab] = useState(tabs[0].id);
+export default function SmoothTabs() {
+  const activeTab = useTabsStore((state) => state.activeTab);
+  const setActiveTab = useTabsStore((state) => state.setActiveTab);
 
   const isMounted = useMounted();
 
@@ -44,10 +39,6 @@ export default function SmoothTabs({ onActiveTabChange }: SmoothTabsProps) {
       window.removeEventListener("resize", updateWidth);
     };
   }, [viewsContainerWidth]);
-
-  useEffect(() => {
-    onActiveTabChange?.(activeTab);
-  }, [activeTab, onActiveTabChange]);
 
   return (
     <div
@@ -73,7 +64,7 @@ export default function SmoothTabs({ onActiveTabChange }: SmoothTabsProps) {
       <Tabs
         tabs={tabs}
         activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab)}
+        onTabChange={(tab) => setActiveTab(tab as TabId)}
       />
     </div>
   );
@@ -144,8 +135,8 @@ const Tabs = ({
   onTabChange,
 }: {
   tabs: Tab[];
-  activeTab: string;
-  onTabChange: (tab: string) => void;
+  activeTab: TabId;
+  onTabChange: (tab: TabId) => void;
 }) => {
   return (
     <ul className="font-poppins w-fit min-w-50 flex p-0 m-0 list-none">
@@ -200,7 +191,7 @@ const Tabs = ({
 };
 
 type Tab = {
-  id: string;
+  id: TabId;
   label: string;
   color: string;
   description?: string;
@@ -215,22 +206,16 @@ const tabs: TabConfig[] = [
     component: Deploy,
   },
   {
-    id: "tab-2",
+    id: CONTAINERS_TAB_ID,
     label: "Containers",
     color: "bg-success",
     component: ContainersTab,
   },
   {
-    id: "tab-3",
+    id: HISTORY_TAB_ID,
     label: "History",
     color: "bg-info",
     component: HistoryTab,
-  },
-  {
-    id: "tab-4",
-    label: "+",
-    color: "bg-accent",
-    component: Categories,
   },
 ];
 

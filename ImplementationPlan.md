@@ -26,9 +26,11 @@
 1. Build `useHealth` hook polling `/healthz` and surface status in header badge/UI shell.
 2. Coordinate polling intervals between health and apps to avoid redundant requests.
 
-### Phase 5 · Settings & Categories Enhancements
-1. Add per-app settings (notes, owners, env/secrets) persisted via the new settings store and exposed through UI modals.
-2. Flesh out the Categories tab using modular forms connected to the persisted metadata once the API is ready.
+### Phase 5 · Operational Enhancements
+1. Extend per-app settings persistence (notes, owner, env/secrets, domain, repo metadata) and surface quick context in the side panel.
+2. Broaden history analytics with richer filters, exports, and insight summaries to simplify auditing.
+3. Automate redeploy/update flows powered by saved settings so existing containers can be refreshed in one click.
+4. Layer on container health/status signals (uptime, restarts, network) to round out day-to-day operations.
 
 ## Guiding Principles
 - Prefer small PR-sized increments; each phase can be split into multiple commits if needed.

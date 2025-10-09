@@ -1,9 +1,13 @@
 import { create } from "zustand";
 import type { AppInfo } from "../types/app";
+import { DEPLOY_TAB_ID } from "../constants/tabs";
+import { useDeployFormStore } from "./deployFormStore";
+import { useTabsStore } from "./tabsStore";
+import type { DeployFramework } from "./deployFormStore";
 import { useDeployHistoryStore } from "./deployHistoryStore";
 
 type ApiAction = "start" | "stop" | "restart" | "remove";
-type ContainerAction = ApiAction | "purge";
+type ContainerAction = ApiAction | "purge" | "update";
 
 type ContainersState = {
   apps: AppInfo[];
@@ -18,6 +22,7 @@ type ContainersState = {
     action: ApiAction,
     options?: { purge?: boolean }
   ) => Promise<void>;
+  redeployApp: (appName: string) => Promise<void>;
 };
 
 export const useContainersStore = create<ContainersState>((set, get) => ({
@@ -97,6 +102,68 @@ export const useContainersStore = create<ContainersState>((set, get) => ({
     } finally {
       const nextPending = { ...get().pendingActions };
       delete nextPending[container];
+      set({ pendingActions: nextPending });
+    }
+  },
+
+  redeployApp: async (appName) => {
+    const { pendingActions } = get();
+    const target = get().apps.find((app) => app.name === appName);
+    if (!target) {
+      const message = `Container ${appName} not found.`;
+      set({ error: message });
+      throw new Error(message);
+    }
+
+    set({
+      pendingActions: { ...pendingActions, [target.container]: "update" },
+      error: null,
+    });
+
+    try {
+      const response = await fetch(
+        `/api/apps/${encodeURIComponent(appName)}/deploy-config`
+      );
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Failed to load deploy config (${response.status})`);
+      }
+
+      const data = (await response.json()) as {
+        config: {
+          name: string;
+          repoUrl: string;
+          appPath?: string | null;
+          variables?: string;
+          framework: string;
+          domain?: string;
+          branch?: string | null;
+        };
+      };
+
+      const config = data.config;
+      const framework: DeployFramework = config.framework === "nextjs" ? "nextjs" : "vite";
+
+      const payload = {
+        name: config.name,
+        repoUrl: config.repoUrl,
+        appPath: config.appPath ?? null,
+        variables: config.variables ?? "",
+        framework,
+        domain: config.domain ?? undefined,
+        branch: config.branch ?? "main",
+        submittedAt: new Date().toISOString(),
+      };
+
+      useDeployFormStore.getState().triggerDeploy(payload);
+      useTabsStore.getState().setActiveTab(DEPLOY_TAB_ID);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      set({ error: message });
+      throw error;
+    } finally {
+      const nextPending = { ...get().pendingActions };
+      delete nextPending[target.container];
       set({ pendingActions: nextPending });
     }
   },

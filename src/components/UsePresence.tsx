@@ -2,23 +2,25 @@
 
 import { AnimatePresence, motion, usePresenceData } from "motion/react";
 import { forwardRef, useEffect, useState, type ComponentType } from "react";
-import DeploymentForm from "./DeploymentForm";
+import { CONTAINERS_TAB_ID, DEPLOY_TAB_ID, HISTORY_TAB_ID, type TabId } from "../constants/tabs";
+import { useTabsStore } from "../stores/tabsStore";
 import ContainerSettingsPanel from "../tabs/ContainerSettingsPanel";
-import CategoriesForm from "./CategoriesForm";
+import DeploymentForm from "./DeploymentForm";
+import HistoryInsightsPanel from "./HistoryInsightsPanel";
 
-const SLIDE_COMPONENTS: Record<string, ComponentType> = {
-  "tab-1": DeploymentForm,
-  "tab-2": ContainerSettingsPanel,
-  "tab-3": CategoriesForm,
-  "tab-4": CategoriesForm,
+const SLIDE_COMPONENTS: Record<TabId, ComponentType> = {
+  [DEPLOY_TAB_ID]: DeploymentForm,
+  [CONTAINERS_TAB_ID]: ContainerSettingsPanel,
+  [HISTORY_TAB_ID]: HistoryInsightsPanel,
 };
 
-export default function UsePresenceData({ activeTab }: { activeTab: string }) {
-  const [selectedKey, setSelectedKey] = useState<string>("tab-1");
+export default function UsePresenceData() {
+  const activeTab = useTabsStore((state) => state.activeTab);
+  const [selectedKey, setSelectedKey] = useState<TabId>(DEPLOY_TAB_ID);
   const [direction, setDirection] = useState<1 | -1>(1);
 
   useEffect(() => {
-    const nextKey = SLIDE_COMPONENTS[activeTab] ? activeTab : "tab-1";
+    const nextKey = SLIDE_COMPONENTS[activeTab] ? activeTab : DEPLOY_TAB_ID;
     setSelectedKey(nextKey);
     setDirection(1);
   }, [activeTab]);
@@ -57,7 +59,7 @@ const Slide = forwardRef(function Slide(
         },
       }}
       exit={{ opacity: 0, y: direction * -200 }}
-      className="relative card w/full"
+      className="relative card w-full"
     >
       <Component />
     </motion.div>

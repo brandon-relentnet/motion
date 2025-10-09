@@ -121,7 +121,9 @@ export default function ContainerSettingsPanel() {
     <div className="card w-full p-6 flex flex-col gap-4">
       <header className="flex flex-col gap-1">
         <h3 className="text-lg font-semibold">Settings • {selectedApp}</h3>
-        {containerInfo && <ContainerMeta info={containerInfo} domain={domain} />}
+        {containerInfo && (
+          <ContainerMeta info={containerInfo} settings={form} domain={domain} />
+        )}
       </header>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
@@ -210,7 +212,15 @@ export default function ContainerSettingsPanel() {
   );
 }
 
-function ContainerMeta({ info, domain }: { info: AppInfo; domain?: string }) {
+function ContainerMeta({
+  info,
+  settings,
+  domain,
+}: {
+  info: AppInfo;
+  settings: AppSettings;
+  domain?: string;
+}) {
   return (
     <div className="flex flex-col gap-1 text-sm text-base-content/70">
       <span>
@@ -218,6 +228,26 @@ function ContainerMeta({ info, domain }: { info: AppInfo; domain?: string }) {
       </span>
       <span>Container ID: {info.container}</span>
       <span>Domain: {domain?.trim() || "—"}</span>
+      {settings.repoUrl && (
+        <span className="truncate">
+          Repo: <span className="text-base-content/80">{settings.repoUrl}</span>
+        </span>
+      )}
+      {settings.branch && (
+        <span>
+          Branch: <span className="text-base-content/80">{settings.branch}</span>
+        </span>
+      )}
+      {settings.lastDeployedAt && (
+        <span>
+          Last deploy: {formatTimestamp(settings.lastDeployedAt)}
+        </span>
+      )}
+      {settings.lastCommit && (
+        <span>
+          Last commit: <code>{settings.lastCommit.slice(0, 7)}</code>
+        </span>
+      )}
       {info.url && (
         <a href={info.url} target="_blank" rel="noreferrer" className="link link-hover">
           {info.url}
@@ -251,4 +281,10 @@ function EnvEditor({
       />
     </div>
   );
+}
+
+function formatTimestamp(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
 }

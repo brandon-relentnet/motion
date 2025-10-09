@@ -9,6 +9,7 @@ export type DeployPayload = {
   variables: string;
   framework: DeployFramework;
   domain?: string;
+  branch?: string | null;
   submittedAt: string;
 };
 
@@ -29,7 +30,12 @@ type DeployFormState = {
   status: DeployFormStatus;
   statusMessage: string | null;
   lastPayload: DeployPayload | null;
-  setField: (field: "name" | "repoUrl" | "appPath" | "variables" | "domain", value: string) => void;
+  branch: string;
+  queuedPayload: DeployPayload | null;
+  triggerVersion: number;
+  triggerDeploy: (payload: DeployPayload) => void;
+  consumeTrigger: () => void;
+  setField: (field: "name" | "repoUrl" | "appPath" | "variables" | "domain" | "branch", value: string) => void;
   setFramework: (framework: DeployFramework) => void;
   clearFeedback: () => void;
   setStatus: (status: DeployFormStatus, statusMessage?: string | null) => void;
@@ -47,6 +53,7 @@ function buildPayload(state: DeployFormState): DeployPayload {
     variables: state.variables,
     framework: state.framework,
     domain: state.domain.trim() ? state.domain.trim() : undefined,
+    branch: state.branch.trim() ? state.branch.trim() : "main",
     submittedAt: new Date().toISOString(),
   };
 }
@@ -62,6 +69,9 @@ export const useDeployFormStore = create<DeployFormState>((set, get) => ({
   status: "idle",
   statusMessage: null,
   lastPayload: null,
+  branch: "main",
+  queuedPayload: null,
+  triggerVersion: 0,
 
   setField: (field, value) =>
     set((state) => ({
@@ -94,6 +104,25 @@ export const useDeployFormStore = create<DeployFormState>((set, get) => ({
   setError: (message) => set({ error: message, status: "idle", statusMessage: null }),
 
   setLastPayload: (payload) => set({ lastPayload: payload }),
+
+  triggerDeploy: (payload) =>
+    set((state) => ({
+      name: payload.name,
+      repoUrl: payload.repoUrl,
+      appPath: payload.appPath ?? "",
+      variables: payload.variables ?? "",
+      framework: payload.framework,
+      domain: payload.domain ?? "",
+      branch: payload.branch ?? state.branch ?? "main",
+      lastPayload: payload,
+      queuedPayload: payload,
+      triggerVersion: state.triggerVersion + 1,
+      status: "submitting",
+      statusMessage: "Preparing redeploy…",
+      error: null,
+    })),
+
+  consumeTrigger: () => set({ queuedPayload: null }),
 
   submit: () => {
     const { name, repoUrl } = get();

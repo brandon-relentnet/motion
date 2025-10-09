@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   selectHistoryError,
   selectHistoryLoading,
@@ -18,8 +18,31 @@ const ACTION_BADGE = {
   failed: "badge-error",
 } as const;
 
+const TYPE_OPTIONS: { label: string; value: TypeFilter }[] = [
+  { label: "All events", value: "all" },
+  { label: "Deployments", value: "deployment" },
+  { label: "Container actions", value: "action" },
+];
+
+const STATUS_OPTIONS: { label: string; value: StatusFilter }[] = [
+  { label: "Any status", value: "all" },
+  { label: "Success", value: "success" },
+  { label: "Failed", value: "failed" },
+  { label: "Cancelled", value: "cancelled" },
+];
+
+const DATE_OPTIONS: { label: string; value: DateFilter }[] = [
+  { label: "Any time", value: "all" },
+  { label: "Last 24h", value: "24h" },
+  { label: "Last 7 days", value: "7d" },
+  { label: "Last 30 days", value: "30d" },
+];
+
 type SortField = "time" | "app" | "status" | "type";
 type SortDirection = "asc" | "desc";
+type TypeFilter = "all" | "deployment" | "action";
+type StatusFilter = "all" | "success" | "failed" | "cancelled";
+type DateFilter = "all" | "24h" | "7d" | "30d";
 
 export default function HistoryTab({
   tab,
@@ -34,10 +57,34 @@ export default function HistoryTab({
   const [selectedApp, setSelectedApp] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("time");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const feedbackTimeout = useRef<number | null>(null);
+
+  const announceFeedback = useCallback((message: string) => {
+    setShareFeedback(message);
+    if (feedbackTimeout.current) {
+      window.clearTimeout(feedbackTimeout.current);
+    }
+    feedbackTimeout.current = window.setTimeout(() => {
+      setShareFeedback(null);
+      feedbackTimeout.current = null;
+    }, 2200);
+  }, []);
 
   useEffect(() => {
     void fetchHistory();
   }, [fetchHistory]);
+
+  useEffect(() => {
+    return () => {
+      if (feedbackTimeout.current) {
+        window.clearTimeout(feedbackTimeout.current);
+      }
+    };
+  }, []);
 
   const apps = useMemo(() => {
     const names = new Set<string>();
@@ -53,18 +100,74 @@ export default function HistoryTab({
       list = list.filter((record) => record.app === selectedApp);
     }
 
+    if (typeFilter !== "all") {
+      list = list.filter((record) =>
+        typeFilter === "deployment" ? record.kind === "deployment" : record.kind === "container-action"
+      );
+    }
+
+    if (statusFilter !== "all") {
+      list = list.filter((record) => matchesStatusFilter(record, statusFilter));
+    }
+
+    const sinceMs = computeSinceMs(dateFilter);
+    if (sinceMs !== null) {
+      list = list.filter((record) => eventTimestamp(record).getTime() >= sinceMs);
+    }
+
     const sorted = list.slice().sort((a, b) => {
       const delta = compareEvents(a, b, sortField);
       return sortDirection === "asc" ? delta : -delta;
     });
 
     return sorted;
-  }, [records, selectedApp, sortField, sortDirection]);
+  }, [records, selectedApp, typeFilter, statusFilter, dateFilter, sortField, sortDirection]);
 
   const handleSort = (field: SortField) => {
     setSortField(field);
     setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
   };
+
+  const handleExport = useCallback(() => {
+    if (!filtered.length) {
+      announceFeedback("No history to export.");
+      return;
+    }
+    if (typeof document === "undefined") {
+      announceFeedback("Export is only available in the browser.");
+      return;
+    }
+    const csv = buildCsv(filtered);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `history-${Date.now()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    announceFeedback(`Exported ${filtered.length} record${filtered.length === 1 ? "" : "s"}.`);
+  }, [filtered, announceFeedback]);
+
+  const handleCopyJson = useCallback(async () => {
+    if (!filtered.length) {
+      announceFeedback("No history to copy.");
+      return;
+    }
+    const payload = JSON.stringify(filtered, null, 2);
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(payload);
+      } else {
+        throw new Error("Clipboard API unavailable");
+      }
+      announceFeedback("History JSON copied to clipboard.");
+    } catch (copyError) {
+      console.error("Failed to copy history", copyError);
+      announceFeedback("Unable to copy history; see console for details.");
+    }
+  }, [filtered, announceFeedback]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -73,32 +176,116 @@ export default function HistoryTab({
         <h3 className="m-0">{tab.label}</h3>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-base-content/70">
-          Review deploys and container actions for your managed apps.
-        </p>
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-base-content/60" htmlFor="history-filter">
-            App:
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-base-content/70">
+            Review deploys and container actions for your managed apps.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => {
+                void fetchHistory();
+                announceFeedback("History refreshed.");
+              }}
+              disabled={loading}
+            >
+              Refresh
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline"
+              onClick={handleExport}
+              disabled={!filtered.length}
+            >
+              Export CSV
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline"
+              onClick={handleCopyJson}
+            >
+              Copy JSON
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="text-xs uppercase tracking-wide text-base-content/60" htmlFor="history-filter">
+            App
           </label>
           <select
             id="history-filter"
             className="select select-sm"
             value={selectedApp}
-            onChange={(event) => {
-              const value = event.target.value;
-              setSelectedApp(value);
-              void fetchHistory(value === "all" ? undefined : { app: value });
-            }}
+            onChange={(event) => setSelectedApp(event.target.value)}
           >
-            <option value="all">All</option>
+            <option value="all">All apps</option>
             {apps.map((name) => (
               <option key={name} value={name}>
                 {name}
               </option>
             ))}
           </select>
+
+          <label className="text-xs uppercase tracking-wide text-base-content/60" htmlFor="history-type">
+            Type
+          </label>
+          <select
+            id="history-type"
+            className="select select-sm"
+            value={typeFilter}
+            onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}
+          >
+            {TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          <label className="text-xs uppercase tracking-wide text-base-content/60" htmlFor="history-status">
+            Status
+          </label>
+          <select
+            id="history-status"
+            className="select select-sm"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+          >
+            {STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          <label className="text-xs uppercase tracking-wide text-base-content/60" htmlFor="history-range">
+            Range
+          </label>
+          <select
+            id="history-range"
+            className="select select-sm"
+            value={dateFilter}
+            onChange={(event) => setDateFilter(event.target.value as DateFilter)}
+          >
+            {DATE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
+
+        {shareFeedback && (
+          <div className="text-xs text-success">{shareFeedback}</div>
+        )}
+        {!!records.length && (
+          <div className="text-xs text-base-content/60">
+            Showing {filtered.length} of {records.length} events
+          </div>
+        )}
       </div>
 
       {error && (
@@ -133,10 +320,90 @@ export default function HistoryTab({
           </table>
         </div>
       ) : (
-        <div className="text-sm text-base-content/60">No history yet.</div>
+        <div className="text-sm text-base-content/60">No events match the current filters.</div>
       )}
     </div>
   );
+}
+
+function computeSinceMs(range: DateFilter) {
+  const now = Date.now();
+  switch (range) {
+    case "24h":
+      return now - 24 * 60 * 60 * 1000;
+    case "7d":
+      return now - 7 * 24 * 60 * 60 * 1000;
+    case "30d":
+      return now - 30 * 24 * 60 * 60 * 1000;
+    default:
+      return null;
+  }
+}
+
+function matchesStatusFilter(event: HistoryEvent, filter: StatusFilter) {
+  if (filter === "all") return true;
+  if (filter === "cancelled") {
+    return event.kind === "deployment" && event.status === "cancelled";
+  }
+  return event.status === filter;
+}
+
+function buildCsv(records: HistoryEvent[]) {
+  const header = [
+    "type",
+    "app",
+    "container",
+    "action",
+    "status",
+    "timestamp",
+    "durationMs",
+    "repoUrl",
+    "branch",
+    "commit",
+    "message",
+  ];
+
+  const rows = records.map((record) => {
+    if (record.kind === "deployment") {
+      return [
+        "deployment",
+        record.app,
+        record.container,
+        "deploy",
+        record.status,
+        eventTimestamp(record).toISOString(),
+        String(record.durationMs ?? ""),
+        record.repoUrl ?? "",
+        record.branch ?? "",
+        record.commit ?? "",
+        record.message ?? "",
+      ];
+    }
+    return [
+      "container-action",
+      record.app,
+      record.container,
+      record.action,
+      record.status,
+      eventTimestamp(record).toISOString(),
+      "",
+      "",
+      "",
+      "",
+      record.message ?? "",
+    ];
+  });
+
+  return [header, ...rows]
+    .map((row) => row.map(csvEscape).join(","))
+    .join("\n");
+}
+
+function csvEscape(value: string) {
+  const stringValue = value ?? "";
+  const needsQuotes = /[",\n]/.test(stringValue);
+  const escaped = stringValue.replace(/"/g, '""');
+  return needsQuotes ? `"${escaped}"` : escaped;
 }
 
 function SortableHeader({
