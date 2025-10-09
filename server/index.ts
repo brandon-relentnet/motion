@@ -1,7 +1,7 @@
 import cors from "cors";
 import express from "express";
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, readdir, copyFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -19,6 +19,7 @@ interface AppInfo {
   state: ContainerState;
   status: string;
   updatedAt: string;
+  url?: string;
 }
 
 const apps: AppInfo[] = [
@@ -122,11 +123,21 @@ app.post("/api/deploy", async (req, res) => {
       return res.end();
     }
 
+    safeWrite("== Publish with Nginx ==\n");
+    const publishResult = await publishBuild({
+      name,
+      sourceDist: path.join(workspaceRoot, "dist"),
+      baseOutputDir: process.env.DEPLOY_OUTPUT_DIR,
+      baseUrl: process.env.DEPLOY_BASE_URL,
+      onOutput: safeWrite,
+    });
+
     upsertApp({
       name,
-      container: `static_${name}`,
+      container: publishResult.container,
       state: "running",
-      status: "Up just now",
+      status: publishResult.status,
+      url: publishResult.url,
     });
 
     safeWrite("Deployment complete.\n");
@@ -196,11 +207,13 @@ function upsertApp({
   container,
   state,
   status,
+  url,
 }: {
   name: string;
   container: string;
   state: ContainerState;
   status: string;
+  url?: string;
 }) {
   const existing = apps.find((item) => item.name === name);
   if (existing) {
@@ -208,6 +221,7 @@ function upsertApp({
     existing.status = status;
     existing.container = container;
     existing.updatedAt = new Date().toISOString();
+    existing.url = url;
   } else {
     apps.push({
       name,
@@ -215,6 +229,7 @@ function upsertApp({
       state,
       status,
       updatedAt: new Date().toISOString(),
+      ...(url ? { url } : {}),
     });
   }
 }
@@ -331,10 +346,6 @@ async function runBuildPipeline({
     abortedRef,
     label: "npm run build",
   });
-
-  onStage("== Publish with Nginx ==");
-  onOutput("Preparing publication artifacts...\n");
-  onOutput("(TODO) Integrate with container publish pipeline.\n");
 }
 
 async function runCommand({
@@ -383,4 +394,69 @@ async function runCommand({
       }
     });
   });
+}
+
+async function publishBuild({
+  name,
+  sourceDist,
+  baseOutputDir,
+  baseUrl,
+  onOutput,
+}: {
+  name: string;
+  sourceDist: string;
+  baseOutputDir?: string;
+  baseUrl?: string;
+  onOutput: (text: string) => void;
+}): Promise<{ container: string; status: string; url?: string }> {
+  try {
+    await stat(sourceDist);
+  } catch {
+    throw new Error(`dist directory not found at ${sourceDist}`);
+  }
+
+  const container = `static_${name}`;
+  const root = baseOutputDir ? path.resolve(baseOutputDir) : path.join(process.cwd(), "deployments");
+  const destDir = path.join(root, name);
+
+  await mkdir(root, { recursive: true });
+  await rm(destDir, { recursive: true, force: true });
+  await mkdir(destDir, { recursive: true });
+
+  onOutput(`Copying build artifacts to ${destDir}\n`);
+  await copyDirectory(sourceDist, destDir);
+
+  onOutput("Reloading static content (simulated).\n");
+
+  let url: string | undefined;
+  if (baseUrl) {
+    try {
+      const normalized = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+      url = new URL(`${name}/`, normalized).toString();
+    } catch (error) {
+      console.warn("[deploy] invalid DEPLOY_BASE_URL", baseUrl, error);
+    }
+  }
+
+  return {
+    container,
+    status: "Up just now",
+    url,
+  };
+}
+
+async function copyDirectory(source: string, destination: string) {
+  const entries = await readdir(source, { withFileTypes: true });
+  await Promise.all(
+    entries.map(async (entry) => {
+      const srcPath = path.join(source, entry.name);
+      const destPath = path.join(destination, entry.name);
+      if (entry.isDirectory()) {
+        await mkdir(destPath, { recursive: true });
+        await copyDirectory(srcPath, destPath);
+      } else if (entry.isFile()) {
+        await copyFile(srcPath, destPath);
+      }
+    })
+  );
 }

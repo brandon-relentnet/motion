@@ -40,3 +40,6 @@
 - Temporary Express server lives in `server/index.ts`; it streams mock deploy logs and mutates an in-memory apps list so the UI can be exercised end-to-end.
 - Run it locally with `npm run server` (defaults to port 4000). Set `API_PORT` or `API_URL` to override the port/URL if needed.
 - Vite dev server proxies `/api` and `/healthz` to the API, keeping frontend fetch paths unchanged.
+- Optional env vars:
+  - `DEPLOY_OUTPUT_DIR` to override where `dist/` assets are copied (defaults to `<repo>/deployments/<app>`).
+  - `DEPLOY_BASE_URL` to decorate published apps with a browsable URL in the containers list.
