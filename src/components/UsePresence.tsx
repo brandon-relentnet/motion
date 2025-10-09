@@ -1,50 +1,34 @@
 "use client";
 
 import { AnimatePresence, motion, usePresenceData } from "motion/react";
-import { forwardRef, useEffect, useState } from "react";
+import { forwardRef, useEffect, useState, type ComponentType } from "react";
 import DeploymentForm from "./DeploymentForm";
 import EditForm from "./EditForm";
 import CategoriesForm from "./CategoriesForm";
 
-const slides = [
-  {
-    id: 1,
-    label: "DEPLOY_TAB",
-    component: DeploymentForm as React.ComponentType<{}>,
-  },
-  {
-    id: 2,
-    label: "CONTAINERS_TAB",
-    component: EditForm as React.ComponentType<{}>,
-  },
-  {
-    id: 3,
-    label: "CATEGORIES_TAB",
-    component: CategoriesForm as React.ComponentType<{}>,
-  },
-];
+const SLIDE_COMPONENTS: Record<string, ComponentType> = {
+  "tab-1": DeploymentForm,
+  "tab-2": EditForm,
+  "tab-3": CategoriesForm,
+  "tab-4": CategoriesForm,
+};
 
 export default function UsePresenceData({ activeTab }: { activeTab: string }) {
-  const [selectedItem, setSelectedItem] = useState(slides[0]);
+  const [selectedKey, setSelectedKey] = useState<string>("tab-1");
   const [direction, setDirection] = useState<1 | -1>(1);
 
   useEffect(() => {
-    if (activeTab === "tab-1") {
-      setSelectedItem(slides[0]);
-      setDirection(1);
-    } else if (activeTab === "tab-3") {
-      setSelectedItem(slides[2]);
-      setDirection(1);
-    } else {
-      setSelectedItem(slides[1]);
-      setDirection(1);
-    }
+    const nextKey = SLIDE_COMPONENTS[activeTab] ? activeTab : "tab-1";
+    setSelectedKey(nextKey);
+    setDirection(1);
   }, [activeTab]);
+
+  const Component = SLIDE_COMPONENTS[selectedKey] ?? DeploymentForm;
 
   return (
     <div className="relative">
       <AnimatePresence custom={direction} initial={false} mode="popLayout">
-        <Slide key={selectedItem.id} component={selectedItem.component} />
+        <Slide key={selectedKey} component={Component} />
       </AnimatePresence>
     </div>
   );
@@ -54,7 +38,7 @@ const Slide = forwardRef(function Slide(
   {
     component: Component,
   }: {
-    component: React.ComponentType<{}>;
+    component: ComponentType;
   },
   ref: React.Ref<HTMLDivElement>
 ) {

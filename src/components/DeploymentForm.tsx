@@ -21,6 +21,7 @@ import {
   deployStream,
 } from "../lib/deployClient";
 import { useContainersStore } from "../stores/containersStore";
+import { useDeployHistoryStore } from "../stores/deployHistoryStore";
 
 export default function DeploymentForm() {
   const {
@@ -138,6 +139,7 @@ export default function DeploymentForm() {
         "Deployment finished. Review logs in the Deploy tab."
       );
       void useContainersStore.getState().fetchApps();
+      void useDeployHistoryStore.getState().fetchHistory();
     } catch (error) {
       const message =
         error instanceof Error

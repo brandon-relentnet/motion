@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import ContainersTab from "../tabs/ContainersTab";
 import Deploy from "../tabs/Deploy";
 import Categories from "../tabs/Categories";
+import HistoryTab from "../tabs/HistoryTab";
 
 type SmoothTabsProps = {
   onActiveTabChange?: (tabId: string) => void;
@@ -222,6 +223,12 @@ const tabs = [
   },
   {
     id: "tab-3",
+    label: "History",
+    color: "bg-info",
+    component: HistoryTab as React.ComponentType<{ tab: Tab }>,
+  },
+  {
+    id: "tab-4",
     label: "+",
     color: "bg-accent",
     component: Categories as React.ComponentType<{ tab: Tab }>,

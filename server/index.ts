@@ -4,6 +4,13 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { mkdtemp, rm, mkdir, readdir, copyFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import crypto from "node:crypto";
+import {
+  appendDeploymentRecord,
+  readDeploymentHistory,
+  type DeploymentRecord,
+  type DeploymentStatus,
+} from "./historyStore";
 
 const app = express();
 const port = Number.parseInt(process.env.API_PORT ?? process.env.PORT ?? "4000", 10);
@@ -61,6 +68,32 @@ app.get("/api/apps", async (_req, res) => {
   }
 });
 
+app.get("/api/deployments", async (req, res) => {
+  try {
+    const history = await readDeploymentHistory();
+    const appFilter = typeof req.query.app === "string" ? req.query.app.trim() : "";
+    const limitParam = typeof req.query.limit === "string" ? Number.parseInt(req.query.limit, 10) : undefined;
+
+    let records = history;
+    if (appFilter) {
+      records = records.filter((record) => record.app === appFilter);
+    }
+
+    records = records
+      .slice()
+      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+
+    if (limitParam && Number.isFinite(limitParam) && limitParam > 0) {
+      records = records.slice(0, limitParam);
+    }
+
+    res.json({ deployments: records });
+  } catch (error) {
+    console.error("[deploy] failed to load deployment history", error);
+    res.status(500).json({ error: "Failed to load deployment history" });
+  }
+});
+
 app.post("/api/deploy", async (req, res) => {
   const { name, repoUrl, framework, appPath, branch: branchInput } = req.body ?? {};
   if (!name || !repoUrl) {
@@ -100,6 +133,12 @@ app.post("/api/deploy", async (req, res) => {
   const workspaceRoot = await mkdtemp(path.join(tmpdir(), "motion-deploy-"));
   console.log("[deploy] workspace", workspaceRoot);
 
+  const startedAt = Date.now();
+  let commitSha: string | undefined;
+  let publishResult: { container: string; status: string; url?: string } | undefined;
+  let status: DeploymentStatus = "success";
+  let errorMessage: string | undefined;
+
   try {
     console.log("[deploy] entering git stage");
     console.log("[deploy] aborted before git stage?", aborted);
@@ -119,6 +158,7 @@ app.post("/api/deploy", async (req, res) => {
 
     console.log("[deploy] writing commit line");
     safeWrite(`Checked out commit: ${commit}\n`);
+    commitSha = commit;
 
     if (!aborted) {
       await runBuildPipeline({
@@ -134,11 +174,13 @@ app.post("/api/deploy", async (req, res) => {
 
     if (aborted) {
       safeWrite("Deployment cancelled by client.\n");
+      status = "cancelled";
+      errorMessage = "Deployment cancelled by client.";
       return res.end();
     }
 
     safeWrite("== Publish with Nginx ==\n");
-    const publishResult = await publishBuild({
+    publishResult = await publishBuild({
       name,
       sourceDist: path.join(workspaceRoot, "dist"),
       baseOutputDir: process.env.DEPLOY_OUTPUT_DIR,
@@ -161,9 +203,32 @@ app.post("/api/deploy", async (req, res) => {
     const message = error instanceof Error ? error.message : String(error);
     safeWrite(`Deployment failed: ${message}\n`);
     res.destroy(new Error(message));
+    status =
+      error instanceof Error && error.name === "AbortError" ? "cancelled" : "failed";
+    errorMessage = message;
   } finally {
     activeProcess?.kill("SIGTERM");
     await rm(workspaceRoot, { recursive: true, force: true });
+    const endedAt = Date.now();
+    const record: DeploymentRecord = {
+      id: crypto.randomUUID(),
+      app: name,
+      container: publishResult?.container ?? `${containerPrefix}${name}`,
+      repoUrl,
+      branch,
+      framework,
+      commit: commitSha,
+      status,
+      startedAt: new Date(startedAt).toISOString(),
+      completedAt: new Date(endedAt).toISOString(),
+      durationMs: endedAt - startedAt,
+      ...(errorMessage ? { message: errorMessage } : {}),
+    };
+    try {
+      await appendDeploymentRecord(record);
+    } catch (historyError) {
+      console.error("[deploy] failed to append deployment record", historyError);
+    }
   }
 });
 
