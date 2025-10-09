@@ -94,6 +94,7 @@ const View = ({
   viewIndex: number;
   activeIndex: number;
 }) => {
+  const isActive = activeIndex === viewIndex;
   const [difference, setDifference] = useState(activeIndex - viewIndex);
   const x = useSpring(calculateViewX(difference, containerWidth), {
     stiffness: 400,
@@ -126,8 +127,11 @@ const View = ({
         x,
         opacity,
         filter: useMotionTemplate`blur(${blur}px)`,
+        pointerEvents: isActive ? "auto" : "none",
+        zIndex: isActive ? 1 : 0,
       }}
       className="absolute inset-0 p-2 origin-center transform-gpu will-change-transform isolate"
+      aria-hidden={!isActive}
     >
       <div className="w-full h-full p-8 box-border flex flex-col gap-3">
         {children}
