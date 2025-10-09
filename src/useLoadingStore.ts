@@ -1,41 +1,48 @@
 import { create } from "zustand";
 
-type BadgeState = "idle" | "processing" | "success";
+type BadgeState = "idle" | "processing" | "success" | "cancelled";
 
 type LoadingStore = {
   progress: number;
   badge: BadgeState;
-  _timer: number | null;
   start: () => void;
+  setProgress: (value: number) => void;
+  complete: () => void;
+  cancel: () => void;
   reset: () => void;
 };
 
-export const useLoadingStore = create<LoadingStore>((set, get) => ({
+export const useLoadingStore = create<LoadingStore>((set) => ({
   progress: 0,
   badge: "idle",
-  _timer: null,
 
-  start: () => {
-    const { _timer, progress } = get();
-    if (_timer !== null) return;
-    if (progress >= 1) set({ progress: 0 });
-    set({ badge: "processing" });
+  start: () =>
+    set({
+      badge: "processing",
+      progress: 0,
+    }),
 
-    const id = window.setInterval(() => {
-      const next = Math.min(1, get().progress + Math.random() * 0.2);
-      set({ progress: next });
-      if (next >= 1) {
-        window.clearInterval(get()._timer!);
-        set({ _timer: null, badge: "success" });
-      }
-    }, 500);
+  setProgress: (value) =>
+    set((state) => ({
+      progress: Math.max(0, Math.min(1, value)),
+      badge: state.badge === "idle" ? "processing" : state.badge,
+    })),
 
-    set({ _timer: id });
-  },
+  complete: () =>
+    set({
+      badge: "success",
+      progress: 1,
+    }),
 
-  reset: () => {
-    const { _timer } = get();
-    if (_timer !== null) window.clearInterval(_timer);
-    set({ _timer: null, progress: 0, badge: "idle" });
-  },
+  cancel: () =>
+    set({
+      badge: "cancelled",
+      progress: 0,
+    }),
+
+  reset: () =>
+    set({
+      badge: "idle",
+      progress: 0,
+    }),
 }));

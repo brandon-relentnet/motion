@@ -1,7 +1,22 @@
 "use client";
 
 import { motion, MotionConfig } from "motion/react";
-import { type PropsWithChildren, useId, useState } from "react";
+import {
+  type PropsWithChildren,
+  type FocusEvent,
+  useId,
+  useMemo,
+  useState,
+} from "react";
+import type { DeployFramework } from "../stores/deployFormStore";
+
+type AccordionProps = {
+  frameworksEnabled?: boolean;
+  framework?: DeployFramework;
+  onFrameworkChange?: (value: DeployFramework) => void;
+  variables?: string;
+  onVariablesChange?: (value: string) => void;
+};
 
 function Item({
   header,
@@ -23,6 +38,7 @@ function Item({
         <h3>
           <motion.button
             id={id + "-button"}
+            type="button"
             aria-expanded={isOpen}
             aria-controls={id}
             className="w-full flex justify-between items-center px-3 h-[38px] text-left text-[0.875rem] cursor-pointer"
@@ -86,36 +102,54 @@ function Item({
 
 export default function Accordion({
   frameworksEnabled = true,
-}: {
-  frameworksEnabled?: boolean;
-}) {
+  framework = "vite",
+  onFrameworkChange,
+  variables = "",
+  onVariablesChange,
+}: AccordionProps) {
+  const frameworks = useMemo(
+    () => [
+      { id: "vite" as DeployFramework, label: "Vite" },
+      { id: "nextjs" as DeployFramework, label: "Next.js" },
+    ],
+    []
+  );
+
   return (
-    <>
-      <div className="w-full flex flex-col gap-2">
-        {frameworksEnabled && (
-          <Item header="Framework" subheader="Vite">
-            <div className="px-3 pb-3 pt-1">
-              <ul className="menu bg-base-200 rounded-box w-full">
-                <li>
-                  <a>Vite</a>
-                </li>
-                <li>
-                  <a>NextJS</a>
-                </li>
-              </ul>
-            </div>
-          </Item>
-        )}
-        <Item header="Variables" subheader="VARS=***">
+    <div className="w-full flex flex-col gap-2">
+      {frameworksEnabled && (
+        <Item header="Framework" subheader={framework.toUpperCase()}>
           <div className="px-3 pb-3 pt-1">
-            <textarea
-              className="textarea w-full"
-              placeholder="VARS=***"
-            ></textarea>
+            <ul className="menu bg-base-200 rounded-box w-full">
+              {frameworks.map((option) => (
+                <li key={option.id}>
+                  <button
+                    type="button"
+                    className={`justify-start ${
+                      option.id === framework ? "active" : ""
+                    }`}
+                    aria-pressed={option.id === framework}
+                    onClick={() => onFrameworkChange?.(option.id)}
+                  >
+                    {option.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
         </Item>
-      </div>
-    </>
+      )}
+      <Item header="Variables" subheader="VARS=***">
+        <div className="px-3 pb-3 pt-1">
+          <textarea
+            className="textarea w-full"
+            value={variables}
+            onChange={(event) => onVariablesChange?.(event.target.value)}
+            placeholder="VARS=***"
+          ></textarea>
+        </div>
+      </Item>
+    </div>
   );
 }
 
@@ -148,7 +182,7 @@ function ChevronDownIcon() {
  * ==============   Utils   ================
  */
 function onlyKeyboardFocus(callback: () => void) {
-  return (e: React.FocusEvent<HTMLButtonElement>) => {
+  return (e: FocusEvent<HTMLButtonElement>) => {
     if (e.type === "focus" && e.target.matches(":focus-visible")) {
       callback();
     }

@@ -48,20 +48,32 @@ const STATES = {
   idle: "Start",
   processing: "Processing",
   success: "Done",
+  cancelled: "Cancelled",
 } as const;
 
 type BadgeState = keyof typeof STATES;
 
-export default function MultiStateBadge() {
-  const { badge, start, reset } = useLoadingStore();
+type MultiStateBadgeProps = {
+  onStart?: () => void;
+  onReset?: () => void;
+};
+
+export default function MultiStateBadge({
+  onStart,
+  onReset,
+}: MultiStateBadgeProps = {}) {
+  const badge = useLoadingStore((state) => state.badge);
 
   const handleClick = () => {
-    if (badge === "idle") start();
-    else reset();
+    if (badge === "idle") {
+      onStart?.();
+    } else {
+      onReset?.();
+    }
   };
 
   return (
-    <button onClick={handleClick}>
+    <button type="button" onClick={handleClick}>
       <Badge state={badge} />
     </button>
   );
@@ -72,7 +84,7 @@ function Badge({ state }: { state: BadgeState }) {
 
   useEffect(() => {
     if (!badgeRef.current) return;
-    if (state === "success") {
+    if (state === "success" || state === "cancelled") {
       animate(
         badgeRef.current,
         {
@@ -108,6 +120,7 @@ function Icon({ state }: { state: BadgeState }) {
   let IconComponent = <></>;
   if (state === "processing") IconComponent = <Loader />;
   if (state === "success") IconComponent = <Check />;
+  if (state === "cancelled") IconComponent = <Stop />;
 
   return (
     <motion.span
@@ -157,6 +170,14 @@ function Loader() {
         <motion.path d="M21 12a9 9 0 1 1-6.219-8.56" {...animations} />
       </motion.svg>
     </motion.div>
+  );
+}
+
+function Stop() {
+  return (
+    <motion.svg {...svgProps}>
+      <motion.rect x="7" y="7" width="10" height="10" rx="2" {...animations} />
+    </motion.svg>
   );
 }
 
