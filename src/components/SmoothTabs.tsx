@@ -56,7 +56,7 @@ export default function SmoothTabs({ onActiveTabChange }: SmoothTabsProps) {
       <div
         id="views-container"
         ref={viewsContainerRef}
-        className="overflow-hidden relative w-full min-h-[500px] bg-base-200 p-4 rounded-box"
+        className="overflow-x-hidden relative w-full min-h-[60vh] bg-base-200 p-4 rounded-box"
       >
         {isMounted &&
           tabs.map((tab, idx) => (

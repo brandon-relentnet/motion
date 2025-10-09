@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useDeploySessionStore } from "../stores/deploySessionStore";
 import { useDeployFormStore } from "../stores/deployFormStore";
 import { DEPLOY_STEP_MARKERS } from "../lib/deployClient";
@@ -85,7 +80,9 @@ export default function Deploy({ tab }: { tab: Tab }) {
             Status
           </h4>
           <div className="flex items-center gap-3">
-            <span className={`badge ${statusTone.badge}`}>{statusTone.label}</span>
+            <span className={`badge ${statusTone.badge}`}>
+              {statusTone.label}
+            </span>
             {lastCommit && (
               <span className="text-xs text-base-content/70">
                 commit <code>{lastCommit}</code>
@@ -108,7 +105,9 @@ export default function Deploy({ tab }: { tab: Tab }) {
                 {effectivePayload.name}
               </li>
               <li>
-                <span className="font-medium text-base-content">Repository:</span>{" "}
+                <span className="font-medium text-base-content">
+                  Repository:
+                </span>{" "}
                 {effectivePayload.repoUrl}
               </li>
               {effectivePayload.appPath && (
@@ -118,7 +117,9 @@ export default function Deploy({ tab }: { tab: Tab }) {
                 </li>
               )}
               <li>
-                <span className="font-medium text-base-content">Framework:</span>{" "}
+                <span className="font-medium text-base-content">
+                  Framework:
+                </span>{" "}
                 {effectivePayload.framework.toUpperCase()}
               </li>
             </ul>
@@ -137,7 +138,8 @@ export default function Deploy({ tab }: { tab: Tab }) {
         <div className="flex flex-col gap-2">
           {ORDERED_STEPS.map((key, index) => {
             const label = STEP_LABELS[key] ?? key;
-            const hasPassed = stepIndex > index || (!isRunning && stepIndex >= index);
+            const hasPassed =
+              stepIndex > index || (!isRunning && stepIndex >= index);
             const isCurrent = stepIndex === index && isRunning;
             const badgeClass = hasPassed
               ? "badge badge-success"
