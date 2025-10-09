@@ -83,16 +83,20 @@ app.post("/api/deploy", async (req, res) => {
   console.log("[deploy] workspace", workspaceRoot);
 
   try {
+    console.log("[deploy] entering git stage");
     safeWrite("== Git clone/update ==\n");
+    console.log("[deploy] git clone invoked for", repoUrl, "branch", branch);
     const { commit } = await runGitClone({
       repoUrl,
       branch,
       destination: workspaceRoot,
       onProcess: (child) => {
         activeProcess = child;
+        console.log("[deploy] spawned git pid", child.pid);
       },
       onOutput: safeWrite,
     });
+    console.log("[deploy] git clone finished", workspaceRoot);
 
     safeWrite(`Checked out commit: ${commit}\n`);
 
