@@ -9,9 +9,13 @@ import type { AppInfo, ContainerState } from "../types/app";
 
 type ContainersProps = {
   filter?: "running" | "stopped" | "all";
+  showHeader?: boolean;
 };
 
-export default function Containers({ filter = "all" }: ContainersProps) {
+export default function Containers({
+  filter = "all",
+  showHeader = true,
+}: ContainersProps) {
   const apps = useContainersStore(selectApps);
   const loading = useContainersStore(selectLoading);
   const error = useContainersStore(selectError);
@@ -33,19 +37,21 @@ export default function Containers({ filter = "all" }: ContainersProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-base-content/70">
-          Managing containers prefixed with your deployment namespace.
-        </p>
-        <button
-          type="button"
-          className="btn btn-sm"
-          onClick={() => fetchApps()}
-          disabled={loading}
-        >
-          Refresh
-        </button>
-      </div>
+      {showHeader && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-base-content/70">
+            Managing containers prefixed with your deployment namespace.
+          </p>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => fetchApps()}
+            disabled={loading}
+          >
+            Refresh
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="alert alert-error">

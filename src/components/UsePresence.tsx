@@ -14,7 +14,7 @@ const slides = [
   },
   {
     id: 2,
-    label: "ACTIVE_TAB",
+    label: "CONTAINERS_TAB",
     component: EditForm as React.ComponentType<{}>,
   },
   {
@@ -32,7 +32,7 @@ export default function UsePresenceData({ activeTab }: { activeTab: string }) {
     if (activeTab === "tab-1") {
       setSelectedItem(slides[0]);
       setDirection(1);
-    } else if (activeTab === "tab-4") {
+    } else if (activeTab === "tab-3") {
       setSelectedItem(slides[2]);
       setDirection(1);
     } else {

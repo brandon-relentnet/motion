@@ -8,8 +8,7 @@ import {
   useVelocity,
 } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import Active from "../tabs/Active";
-import Stopped from "../tabs/Stopped";
+import ContainersTab from "../tabs/ContainersTab";
 import Deploy from "../tabs/Deploy";
 import Categories from "../tabs/Categories";
 
@@ -213,18 +212,12 @@ const tabs = [
   },
   {
     id: "tab-2",
-    label: "Active",
+    label: "Containers",
     color: "bg-success",
-    component: Active as React.ComponentType<{ tab: Tab }>,
+    component: ContainersTab as React.ComponentType<{ tab: Tab }>,
   },
   {
     id: "tab-3",
-    label: "Stopped",
-    color: "bg-error",
-    component: Stopped as React.ComponentType<{ tab: Tab }>,
-  },
-  {
-    id: "tab-4",
     label: "+",
     color: "bg-accent",
     component: Categories as React.ComponentType<{ tab: Tab }>,
