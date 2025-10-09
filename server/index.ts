@@ -6,10 +6,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import {
-  appendDeploymentRecord,
-  readDeploymentHistory,
-  type DeploymentRecord,
+  appendHistoryEvent,
+  readHistory,
   type DeploymentStatus,
+  type HistoryEvent,
 } from "./historyStore";
 
 const app = express();
@@ -70,7 +70,7 @@ app.get("/api/apps", async (_req, res) => {
 
 app.get("/api/deployments", async (req, res) => {
   try {
-    const history = await readDeploymentHistory();
+    const history = await readHistory();
     const appFilter = typeof req.query.app === "string" ? req.query.app.trim() : "";
     const limitParam = typeof req.query.limit === "string" ? Number.parseInt(req.query.limit, 10) : undefined;
 
@@ -81,7 +81,9 @@ app.get("/api/deployments", async (req, res) => {
 
     records = records
       .slice()
-      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+      .sort((a, b) =>
+        eventTimestamp(b).getTime() - eventTimestamp(a).getTime()
+      );
 
     if (limitParam && Number.isFinite(limitParam) && limitParam > 0) {
       records = records.slice(0, limitParam);
@@ -210,7 +212,8 @@ app.post("/api/deploy", async (req, res) => {
     activeProcess?.kill("SIGTERM");
     await rm(workspaceRoot, { recursive: true, force: true });
     const endedAt = Date.now();
-    const record: DeploymentRecord = {
+    const event: HistoryEvent = {
+      kind: "deployment",
       id: crypto.randomUUID(),
       app: name,
       container: publishResult?.container ?? `${containerPrefix}${name}`,
@@ -225,7 +228,7 @@ app.post("/api/deploy", async (req, res) => {
       ...(errorMessage ? { message: errorMessage } : {}),
     };
     try {
-      await appendDeploymentRecord(record);
+      await appendHistoryEvent(event);
     } catch (historyError) {
       console.error("[deploy] failed to append deployment record", historyError);
     }
@@ -259,6 +262,13 @@ app.post("/api/containers/:container/action", async (req, res) => {
           await purgeDeployOutput(appName);
         }
         pendingApps.delete(appName);
+        await recordContainerAction({
+          app: appName,
+          container,
+          action: "remove",
+          status: "success",
+          message: purge ? "Removed and purged build artifacts." : undefined,
+        });
         return res.json({ ok: true, removed: true, purged: Boolean(purge) });
       default:
         return res.status(400).json({ error: `Unknown action ${action}` });
@@ -267,6 +277,13 @@ app.post("/api/containers/:container/action", async (req, res) => {
     const apps = await listDockerContainers();
     const updated = apps.find((item) => item.container === container);
     if (!updated) {
+      await recordContainerAction({
+        app: appName,
+        container,
+        action,
+        status: "failed",
+        message: "Container vanished after action.",
+      });
       return res.status(404).json({ error: `Container ${container} not found after action.` });
     }
 
@@ -275,10 +292,24 @@ app.post("/api/containers/:container/action", async (req, res) => {
       updated.url = pending.url;
     }
 
+    await recordContainerAction({
+      app: appName,
+      container,
+      action,
+      status: "success",
+    });
+
     res.json({ ok: true, app: updated });
   } catch (error) {
     console.error(`[deploy] action ${action} failed for ${container}`, error);
     const message = error instanceof Error ? error.message : String(error);
+    await recordContainerAction({
+      app: appName,
+      container,
+      action,
+      status: "failed",
+      message,
+    });
     res.status(500).json({ error: message });
   }
 });
@@ -681,7 +712,7 @@ async function ensureStaticContainer({
   network?: string;
   onOutput: (text: string) => void;
 }) {
-  await runDockerCommandSafe(["rm", "-f", containerName], onOutput);
+  await runDockerCommandSafe(["rm", "-f", containerName]);
 
   const args = [
     "run",
@@ -704,9 +735,9 @@ async function ensureStaticContainer({
   await runDockerCommand(args, onOutput);
 }
 
-async function runDockerCommandSafe(args: string[], onOutput: (text: string) => void) {
+async function runDockerCommandSafe(args: string[]) {
   try {
-    await runDockerCommand(args, onOutput, true);
+    await runDockerCommand(args, undefined, true);
   } catch (error) {
     console.warn(`[deploy] docker ${args.join(" ")} failed (ignored):`, error);
   }
@@ -717,4 +748,41 @@ function normalizeContainerState(value?: string): ContainerState {
   if (state.includes("running")) return "running";
   if (state.includes("restart")) return "restarting";
   return "exited";
+}
+
+function eventTimestamp(event: HistoryEvent) {
+  if (event.kind === "deployment") {
+    return new Date(event.startedAt);
+  }
+  return new Date(event.timestamp);
+}
+
+async function recordContainerAction({
+  app,
+  container,
+  action,
+  status,
+  message,
+}: {
+  app: string;
+  container: string;
+  action: "start" | "stop" | "restart" | "remove";
+  status: "success" | "failed";
+  message?: string;
+}) {
+  const event: HistoryEvent = {
+    kind: "container-action",
+    id: crypto.randomUUID(),
+    app,
+    container,
+    action,
+    status,
+    timestamp: new Date().toISOString(),
+    ...(message ? { message } : {}),
+  };
+  try {
+    await appendHistoryEvent(event);
+  } catch (error) {
+    console.error("[deploy] failed to append container action", error);
+  }
 }

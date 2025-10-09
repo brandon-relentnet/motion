@@ -1,6 +1,10 @@
 export type DeploymentStatus = "success" | "failed" | "cancelled";
+export type ActionStatus = "success" | "failed";
 
-export interface DeploymentRecord {
+export type HistoryEvent = DeploymentEvent | ContainerActionEvent;
+
+export interface DeploymentEvent {
+  kind: "deployment";
   id: string;
   app: string;
   container: string;
@@ -12,5 +16,16 @@ export interface DeploymentRecord {
   startedAt: string;
   completedAt: string;
   durationMs: number;
+  message?: string;
+}
+
+export interface ContainerActionEvent {
+  kind: "container-action";
+  id: string;
+  app: string;
+  container: string;
+  action: "start" | "stop" | "restart" | "remove";
+  status: ActionStatus;
+  timestamp: string;
   message?: string;
 }

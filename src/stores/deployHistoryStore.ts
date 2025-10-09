@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import type { DeploymentRecord } from "../types/deployment";
+import type { HistoryEvent } from "../types/deployment";
 
 interface HistoryState {
-  records: DeploymentRecord[];
+  records: HistoryEvent[];
   loading: boolean;
   error: string | null;
   fetchHistory: (params?: { app?: string; limit?: number }) => Promise<void>;
@@ -26,7 +26,7 @@ export const useDeployHistoryStore = create<HistoryState>((set) => ({
       if (!response.ok) {
         throw new Error(`Failed to load deployment history (${response.status})`);
       }
-      const data = (await response.json()) as { deployments?: DeploymentRecord[] };
+      const data = (await response.json()) as { deployments?: HistoryEvent[] };
       set({
         records: data.deployments ?? [],
         loading: false,
