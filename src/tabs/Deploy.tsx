@@ -45,7 +45,10 @@ export default function Deploy({ tab }: { tab: Tab }) {
     logAreaRef.current.scrollTop = logAreaRef.current.scrollHeight;
   }, [logText]);
 
-  const stepIndex = useMemo(() => ORDERED_STEPS.indexOf(step), [step]);
+  const stepIndex = useMemo(() => {
+    if (step === "idle") return -1;
+    return ORDERED_STEPS.indexOf(step);
+  }, [step]);
 
   const statusTone = useMemo(() => {
     if (isRunning) return { badge: "badge-primary", label: "Deploying" };
