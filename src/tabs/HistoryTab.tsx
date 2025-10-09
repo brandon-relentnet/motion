@@ -7,13 +7,18 @@ import {
 } from "../stores/deployHistoryStore";
 import type { HistoryEvent, DeploymentEvent, ContainerActionEvent } from "../types/deployment";
 
-const statusBadge = {
+const DEPLOY_BADGE = {
   success: "badge-success",
   failed: "badge-error",
   cancelled: "badge-warning",
 } as const;
 
-type SortField = "time" | "app" | "status";
+const ACTION_BADGE = {
+  success: "badge-success",
+  failed: "badge-error",
+} as const;
+
+type SortField = "time" | "app" | "status" | "type";
 type SortDirection = "asc" | "desc";
 
 export default function HistoryTab({
@@ -112,7 +117,7 @@ export default function HistoryTab({
           <table className="table table-zebra">
             <thead>
               <tr>
-                <SortableHeader label="Type" sortField="status" currentField={sortField} direction={sortDirection} onSort={handleSort} />
+                <SortableHeader label="Type" sortField="type" currentField={sortField} direction={sortDirection} onSort={handleSort} />
                 <SortableHeader label="App" sortField="app" currentField={sortField} direction={sortDirection} onSort={handleSort} />
                 <th>Details</th>
                 <SortableHeader label="Status" sortField="status" currentField={sortField} direction={sortDirection} onSort={handleSort} />
@@ -194,7 +199,7 @@ function DeploymentRow({ record }: { record: DeploymentEvent }) {
         </div>
       </td>
       <td>
-        <span className={`badge ${statusBadge[record.status]}`}>{record.status}</span>
+        <span className={`badge ${DEPLOY_BADGE[record.status]}`}>{record.status}</span>
         {record.message && <span className="block text-xs text-base-content/60">{record.message}</span>}
       </td>
       <td className="text-sm text-base-content/70">{formatDate(record.startedAt)}</td>
@@ -220,7 +225,7 @@ function ActionRow({ record }: { record: ContainerActionEvent }) {
         {record.message && <span className="block text-xs text-base-content/60">{record.message}</span>}
       </td>
       <td>
-        <span className={`badge ${statusBadgeMap(record.status)}`}>{record.status}</span>
+        <span className={`badge ${ACTION_BADGE[record.status]}`}>{record.status}</span>
       </td>
       <td className="text-sm text-base-content/70">{formatDate(record.timestamp)}</td>
       <td className="text-sm text-base-content/50">—</td>
@@ -228,12 +233,10 @@ function ActionRow({ record }: { record: ContainerActionEvent }) {
   );
 }
 
-function statusBadgeMap(status: "success" | "failed") {
-  return status === "success" ? "badge-success" : "badge-error";
-}
-
 function compareEvents(a: HistoryEvent, b: HistoryEvent, field: SortField) {
   switch (field) {
+    case "type":
+      return eventTypeValue(a) - eventTypeValue(b);
     case "app":
       return a.app.localeCompare(b.app);
     case "status":
@@ -249,6 +252,10 @@ function statusValue(event: HistoryEvent) {
     return event.status === "success" ? 0 : event.status === "cancelled" ? 1 : 2;
   }
   return event.status === "success" ? 0 : 1;
+}
+
+function eventTypeValue(event: HistoryEvent) {
+  return event.kind === "deployment" ? 0 : 1;
 }
 
 function eventTimestamp(event: HistoryEvent) {

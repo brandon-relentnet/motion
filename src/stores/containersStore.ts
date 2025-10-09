@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { AppInfo } from "../types/app";
+import { useDeployHistoryStore } from "./deployHistoryStore";
 
 type ApiAction = "start" | "stop" | "restart" | "remove";
 type ContainerAction = ApiAction | "purge";
@@ -74,9 +75,11 @@ export const useContainersStore = create<ContainersState>((set, get) => ({
           ),
         }));
       }
+      void useDeployHistoryStore.getState().fetchHistory();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       set({ error: message });
+      void useDeployHistoryStore.getState().fetchHistory();
       throw error;
     } finally {
       const nextPending = { ...get().pendingActions };
