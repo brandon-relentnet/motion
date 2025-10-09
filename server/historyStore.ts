@@ -52,9 +52,9 @@ export async function readHistory(): Promise<HistoryEvent[]> {
   await ensureHistoryFile();
   const raw = await fs.readFile(historyFile, "utf8");
   try {
-    const data = JSON.parse(raw) as HistoryEvent[] | any[];
+    const data = JSON.parse(raw) as unknown;
     if (!Array.isArray(data)) return [];
-    return data.map(normalizeEvent).filter(Boolean) as HistoryEvent[];
+    return (data.map(normalizeEvent).filter(Boolean) as HistoryEvent[]);
   } catch {
     return [];
   }
@@ -67,76 +67,86 @@ export async function appendHistoryEvent(event: HistoryEvent) {
   await fs.writeFile(historyFile, JSON.stringify(current, null, 2), "utf8");
 }
 
-function normalizeEvent(entry: any): HistoryEvent | null {
+function normalizeEvent(entry: unknown): HistoryEvent | null {
   if (!entry || typeof entry !== "object") return null;
 
-  if (entry.kind === "deployment") {
+  const record = entry as Record<string, unknown>;
+
+  if (record.kind === "deployment") {
     return {
       kind: "deployment",
-      id: String(entry.id ?? ""),
-      app: String(entry.app ?? ""),
-      container: String(entry.container ?? ""),
-      repoUrl: String(entry.repoUrl ?? ""),
-      branch: String(entry.branch ?? ""),
-      commit: entry.commit ? String(entry.commit) : undefined,
-      framework: entry.framework ? String(entry.framework) : undefined,
-      status: normalizeDeploymentStatus(entry.status),
-      startedAt: new Date(entry.startedAt ?? Date.now()).toISOString(),
-      completedAt: new Date(entry.completedAt ?? entry.startedAt ?? Date.now()).toISOString(),
-      durationMs: Number.isFinite(entry.durationMs)
-        ? Number(entry.durationMs)
-        : Math.max(0, new Date(entry.completedAt ?? Date.now()).getTime() - new Date(entry.startedAt ?? Date.now()).getTime()),
-      message: entry.message ? String(entry.message) : undefined,
+      id: String(record.id ?? ""),
+      app: String(record.app ?? ""),
+      container: String(record.container ?? ""),
+      repoUrl: String(record.repoUrl ?? ""),
+      branch: String(record.branch ?? ""),
+      commit: record.commit ? String(record.commit) : undefined,
+      framework: record.framework ? String(record.framework) : undefined,
+      status: normalizeDeploymentStatus(record.status),
+      startedAt: new Date(record.startedAt ?? Date.now()).toISOString(),
+      completedAt: new Date(record.completedAt ?? record.startedAt ?? Date.now()).toISOString(),
+      durationMs: Number.isFinite(record.durationMs as number)
+        ? Number(record.durationMs)
+        : Math.max(
+            0,
+            new Date(record.completedAt ?? Date.now()).getTime() -
+              new Date(record.startedAt ?? Date.now()).getTime()
+          ),
+      message: record.message ? String(record.message) : undefined,
     } satisfies DeploymentEvent;
   }
 
   // Legacy array of deployments without kind
-  if (entry.app && entry.container && entry.startedAt && entry.completedAt) {
+  if (record.app && record.container && record.startedAt && record.completedAt) {
     return {
       kind: "deployment",
-      id: String(entry.id ?? ""),
-      app: String(entry.app ?? ""),
-      container: String(entry.container ?? ""),
-      repoUrl: String(entry.repoUrl ?? ""),
-      branch: String(entry.branch ?? ""),
-      commit: entry.commit ? String(entry.commit) : undefined,
-      framework: entry.framework ? String(entry.framework) : undefined,
-      status: normalizeDeploymentStatus(entry.status),
-      startedAt: new Date(entry.startedAt).toISOString(),
-      completedAt: new Date(entry.completedAt).toISOString(),
-      durationMs: Number.isFinite(entry.durationMs)
-        ? Number(entry.durationMs)
-        : Math.max(0, new Date(entry.completedAt).getTime() - new Date(entry.startedAt).getTime()),
-      message: entry.message ? String(entry.message) : undefined,
+      id: String(record.id ?? ""),
+      app: String(record.app ?? ""),
+      container: String(record.container ?? ""),
+      repoUrl: String(record.repoUrl ?? ""),
+      branch: String(record.branch ?? ""),
+      commit: record.commit ? String(record.commit) : undefined,
+      framework: record.framework ? String(record.framework) : undefined,
+      status: normalizeDeploymentStatus(record.status),
+      startedAt: new Date(record.startedAt as string).toISOString(),
+      completedAt: new Date(record.completedAt as string).toISOString(),
+      durationMs: Number.isFinite(record.durationMs as number)
+        ? Number(record.durationMs)
+        : Math.max(
+            0,
+            new Date(record.completedAt as string).getTime() -
+              new Date(record.startedAt as string).getTime()
+          ),
+      message: record.message ? String(record.message) : undefined,
     } satisfies DeploymentEvent;
   }
 
-  if (entry.kind === "container-action") {
+  if (record.kind === "container-action") {
     return {
       kind: "container-action",
-      id: String(entry.id ?? ""),
-      app: String(entry.app ?? ""),
-      container: String(entry.container ?? ""),
-      action: normalizeAction(entry.action),
-      status: normalizeActionStatus(entry.status),
-      timestamp: new Date(entry.timestamp ?? Date.now()).toISOString(),
-      message: entry.message ? String(entry.message) : undefined,
+      id: String(record.id ?? ""),
+      app: String(record.app ?? ""),
+      container: String(record.container ?? ""),
+      action: normalizeAction(record.action),
+      status: normalizeActionStatus(record.status),
+      timestamp: new Date(record.timestamp ?? Date.now()).toISOString(),
+      message: record.message ? String(record.message) : undefined,
     } satisfies ContainerActionEvent;
   }
 
   return null;
 }
 
-function normalizeDeploymentStatus(value: any): DeploymentStatus {
+function normalizeDeploymentStatus(value: unknown): DeploymentStatus {
   if (value === "failed" || value === "cancelled") return value;
   return "success";
 }
 
-function normalizeAction(value: any): ContainerActionEvent["action"] {
+function normalizeAction(value: unknown): ContainerActionEvent["action"] {
   if (value === "stop" || value === "restart" || value === "remove") return value;
   return "start";
 }
 
-function normalizeActionStatus(value: any): ActionStatus {
+function normalizeActionStatus(value: unknown): ActionStatus {
   return value === "failed" ? "failed" : "success";
 }

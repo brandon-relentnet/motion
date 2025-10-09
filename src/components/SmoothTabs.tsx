@@ -62,17 +62,12 @@ export default function SmoothTabs({ onActiveTabChange }: SmoothTabsProps) {
           tabs.map((tab, idx) => (
             <View
               key={tab.id}
+              tab={tab}
+              Component={tab.component}
               containerWidth={viewsContainerWidth}
               viewIndex={idx}
               activeIndex={tabs.findIndex((t) => t.id === activeTab)}
-            >
-              {(() => {
-                const Component = (tab as any).component as
-                  | React.ComponentType<{ tab: Tab }>
-                  | undefined;
-                return Component ? <Component tab={tab} /> : null;
-              })()}
-            </View>
+            />
           ))}
       </div>
       <Tabs
@@ -85,12 +80,14 @@ export default function SmoothTabs({ onActiveTabChange }: SmoothTabsProps) {
 }
 
 const View = ({
-  children,
+  Component,
+  tab,
   containerWidth,
   viewIndex,
   activeIndex,
 }: {
-  children: React.ReactNode;
+  Component: React.ComponentType<{ tab: Tab }>;
+  tab: Tab;
   containerWidth: number;
   viewIndex: number;
   activeIndex: number;
@@ -135,7 +132,7 @@ const View = ({
       aria-hidden={!isActive}
     >
       <div className="w-full h-full p-8 box-border flex flex-col gap-3">
-        {children}
+        <Component tab={tab} />
       </div>
     </motion.div>
   );
@@ -146,7 +143,7 @@ const Tabs = ({
   activeTab,
   onTabChange,
 }: {
-  tabs: { id: string; label: string; color: string }[];
+  tabs: Tab[];
   activeTab: string;
   onTabChange: (tab: string) => void;
 }) => {
@@ -208,30 +205,32 @@ type Tab = {
   color: string;
   description?: string;
 };
-const tabs = [
+type TabConfig = Tab & { component: React.ComponentType<{ tab: Tab }> };
+
+const tabs: TabConfig[] = [
   {
     id: DEPLOY_TAB_ID,
     label: "Deploy",
     color: "bg-primary",
-    component: Deploy as React.ComponentType<{ tab: Tab }>,
+    component: Deploy,
   },
   {
     id: "tab-2",
     label: "Containers",
     color: "bg-success",
-    component: ContainersTab as React.ComponentType<{ tab: Tab }>,
+    component: ContainersTab,
   },
   {
     id: "tab-3",
     label: "History",
     color: "bg-info",
-    component: HistoryTab as React.ComponentType<{ tab: Tab }>,
+    component: HistoryTab,
   },
   {
     id: "tab-4",
     label: "+",
     color: "bg-accent",
-    component: Categories as React.ComponentType<{ tab: Tab }>,
+    component: Categories,
   },
 ];
 
