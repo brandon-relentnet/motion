@@ -35,3 +35,8 @@
 - Keep UI components stateless where possible; colocate side effects in hooks/stores.
 - Maintain strong typing for API responses; centralize types in `src/lib`.
 - Guard all network calls with sensible error handling and user feedback.
+
+## API Server Notes
+- Temporary Express server lives in `server/index.ts`; it streams mock deploy logs and mutates an in-memory apps list so the UI can be exercised end-to-end.
+- Run it locally with `npm run server` (defaults to port 4000). Set `API_PORT` or `API_URL` to override the port/URL if needed.
+- Vite dev server proxies `/api` and `/healthz` to the API, keeping frontend fetch paths unchanged.
