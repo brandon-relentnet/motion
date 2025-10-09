@@ -17,6 +17,7 @@ const emptySettings: AppSettings = {
   app: "",
   notes: "",
   owner: "",
+  domain: undefined,
 };
 
 export default function ContainerSettingsPanel() {
@@ -36,6 +37,7 @@ export default function ContainerSettingsPanel() {
   const [form, setForm] = useState<AppSettings>(emptySettings);
   const [publicEnvText, setPublicEnvText] = useState("");
   const [secretsText, setSecretsText] = useState("");
+  const [domain, setDomain] = useState("");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,6 +46,7 @@ export default function ContainerSettingsPanel() {
       setPublicEnvText("");
       setSecretsText("");
       setStatusMessage(null);
+      setDomain("");
       return;
     }
 
@@ -52,14 +55,16 @@ export default function ContainerSettingsPanel() {
     void fetchSettings(app)
       .then((settings) => {
         if (!settings) {
-          setForm({ ...emptySettings, app });
-          setPublicEnvText("");
-          setSecretsText("");
-          return;
-        }
-        setForm(settings);
-        setPublicEnvText(envObjectToText(settings.publicEnv));
-        setSecretsText(envObjectToText(settings.secrets));
+        setForm({ ...emptySettings, app });
+        setPublicEnvText("");
+        setSecretsText("");
+        setDomain("");
+        return;
+      }
+      setForm(settings);
+      setPublicEnvText(envObjectToText(settings.publicEnv));
+      setSecretsText(envObjectToText(settings.secrets));
+      setDomain(settings.domain ?? "");
       })
       .catch(() => {
         /* handled via error state */
@@ -86,10 +91,12 @@ export default function ContainerSettingsPanel() {
         owner: form.owner,
         publicEnv: textToEnv(publicEnvText),
         secrets: textToEnv(secretsText),
+        domain,
       });
       setForm(saved);
       setPublicEnvText(envObjectToText(saved.publicEnv));
       setSecretsText(envObjectToText(saved.secrets));
+      setDomain(saved.domain ?? "");
       setStatusMessage("Settings saved.");
     } catch (err) {
       console.error(err);
@@ -103,6 +110,7 @@ export default function ContainerSettingsPanel() {
       setForm({ ...emptySettings, app: selectedApp });
       setPublicEnvText("");
       setSecretsText("");
+      setDomain("");
       setStatusMessage("Settings deleted.");
     } catch (err) {
       console.error(err);
@@ -113,7 +121,7 @@ export default function ContainerSettingsPanel() {
     <div className="card w-full p-6 flex flex-col gap-4">
       <header className="flex flex-col gap-1">
         <h3 className="text-lg font-semibold">Settings • {selectedApp}</h3>
-        {containerInfo && <ContainerMeta info={containerInfo} />}
+        {containerInfo && <ContainerMeta info={containerInfo} domain={domain} />}
       </header>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
@@ -149,6 +157,21 @@ export default function ContainerSettingsPanel() {
           value={publicEnvText}
           onChange={setPublicEnvText}
         />
+
+        <div className="form-control">
+          <label className="label">
+            <span className="label-text">Domain</span>
+          </label>
+          <input
+            className="input input-bordered"
+            placeholder="https://app.example.com"
+            value={domain}
+            onChange={(event) => setDomain(event.target.value)}
+          />
+          <label className="label">
+            <span className="label-text-alt">Used for allowlists and links.</span>
+          </label>
+        </div>
 
         <EnvEditor
           label="Secrets (stored server-side)"
@@ -187,13 +210,14 @@ export default function ContainerSettingsPanel() {
   );
 }
 
-function ContainerMeta({ info }: { info: AppInfo }) {
+function ContainerMeta({ info, domain }: { info: AppInfo; domain?: string }) {
   return (
     <div className="flex flex-col gap-1 text-sm text-base-content/70">
       <span>
         Status: <span className="font-medium">{info.state}</span> • {info.status}
       </span>
       <span>Container ID: {info.container}</span>
+      <span>Domain: {domain?.trim() || "—"}</span>
       {info.url && (
         <a href={info.url} target="_blank" rel="noreferrer" className="link link-hover">
           {info.url}

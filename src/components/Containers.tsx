@@ -30,6 +30,12 @@ export default function Containers({
     }
   }, [apps.length, fetchApps]);
 
+  useEffect(() => {
+    if (selectedApp && !apps.some((app) => app.name === selectedApp)) {
+      setSelectedApp(null);
+    }
+  }, [apps, selectedApp, setSelectedApp]);
+
   const filteredApps = useMemo(() => {
     if (filter === "all") return apps;
     if (filter === "running") {
@@ -142,7 +148,7 @@ function ContainerRow({
               rel="noreferrer"
               className="text-xs text-primary"
             >
-              Open site
+              {app.url}
             </a>
           )}
         </div>

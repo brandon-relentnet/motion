@@ -31,6 +31,7 @@ export default function DeploymentForm() {
     repoUrl,
     appPath,
     variables,
+    domain,
     framework,
     error,
     status,
@@ -72,18 +73,21 @@ export default function DeploymentForm() {
 
   const nameValue = useDeployFormStore((state) => state.name);
   const variablesValue = useDeployFormStore((state) => state.variables);
+  const domainValue = useDeployFormStore((state) => state.domain);
   const setDeployField = useDeployFormStore((state) => state.setField);
 
   useEffect(() => {
     const trimmed = nameValue.trim();
     if (!trimmed) return;
-    if (variablesValue.trim().length > 0) return;
     let cancelled = false;
     void fetchSettings(trimmed)
       .then((settings) => {
         if (!settings || cancelled) return;
-        if (settings.publicEnv) {
+        if (settings.publicEnv && variablesValue.trim().length === 0) {
           setDeployField("variables", envObjectToText(settings.publicEnv));
+        }
+        if (settings.domain && domainValue.trim().length === 0) {
+          setDeployField("domain", settings.domain);
         }
       })
       .catch(() => {
@@ -92,10 +96,10 @@ export default function DeploymentForm() {
     return () => {
       cancelled = true;
     };
-  }, [fetchSettings, nameValue, setDeployField, variablesValue]);
+  }, [fetchSettings, nameValue, setDeployField, variablesValue, domainValue]);
 
   const handleChange = useCallback(
-    (field: "name" | "repoUrl" | "appPath" | "variables") =>
+    (field: "name" | "repoUrl" | "appPath" | "variables" | "domain") =>
       (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         clearFeedback();
         setField(field, event.target.value);
@@ -263,6 +267,18 @@ export default function DeploymentForm() {
             placeholder="src/app/"
             value={appPath}
             onChange={handleChange("appPath")}
+            autoComplete="off"
+          />
+          <span className="badge badge-neutral badge-xs">Optional</span>
+        </label>
+        <label className="input w-full">
+          Domain
+          <input
+            type="text"
+            className="grow"
+            placeholder="app.example.com"
+            value={domain}
+            onChange={handleChange("domain")}
             autoComplete="off"
           />
           <span className="badge badge-neutral badge-xs">Optional</span>

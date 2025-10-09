@@ -4,4 +4,5 @@ export interface AppSettings {
   owner?: string;
   publicEnv?: Record<string, string>;
   secrets?: Record<string, string>;
+  domain?: string;
 }

@@ -8,6 +8,7 @@ export interface AppSettings {
   owner?: string;
   publicEnv?: Record<string, string>;
   secrets?: Record<string, string>;
+  domain?: string;
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -77,6 +78,7 @@ function normalizeSettings(settings: AppSettings): AppSettings {
     owner: settings.owner?.trim() ? settings.owner.trim() : undefined,
     publicEnv: sanitizeEnv(settings.publicEnv),
     secrets: sanitizeEnv(settings.secrets),
+    domain: settings.domain?.trim() ? settings.domain.trim() : undefined,
   };
 }
 

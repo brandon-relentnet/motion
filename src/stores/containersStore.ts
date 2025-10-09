@@ -37,18 +37,10 @@ export const useContainersStore = create<ContainersState>((set, get) => ({
         throw new Error(`Failed to load containers (${response.status})`);
       }
       const data = (await response.json()) as { apps?: AppInfo[] };
-      set((state) => {
-        const nextApps = data.apps ?? [];
-        let selectedApp = state.selectedApp;
-        if (!selectedApp || !nextApps.some((app) => app.name === selectedApp)) {
-          selectedApp = nextApps[0]?.name ?? null;
-        }
-        return {
-          apps: nextApps,
-          loading: false,
-          error: null,
-          selectedApp,
-        };
+      set({
+        apps: data.apps ?? [],
+        loading: false,
+        error: null,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -84,10 +76,7 @@ export const useContainersStore = create<ContainersState>((set, get) => ({
       if (action === "remove") {
         set((state) => {
           const nextApps = state.apps.filter((app) => app.container !== container);
-          let selectedApp = state.selectedApp;
-          if (selectedApp === appName) {
-            selectedApp = nextApps[0]?.name ?? null;
-          }
+          const selectedApp = state.selectedApp === appName ? null : state.selectedApp;
           return { apps: nextApps, selectedApp };
         });
       } else {

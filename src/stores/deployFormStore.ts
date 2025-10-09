@@ -8,6 +8,7 @@ export type DeployPayload = {
   appPath?: string | null;
   variables: string;
   framework: DeployFramework;
+  domain?: string;
   submittedAt: string;
 };
 
@@ -23,11 +24,12 @@ type DeployFormState = {
   appPath: string;
   variables: string;
   framework: DeployFramework;
+  domain: string;
   error: string | null;
   status: DeployFormStatus;
   statusMessage: string | null;
   lastPayload: DeployPayload | null;
-  setField: (field: "name" | "repoUrl" | "appPath" | "variables", value: string) => void;
+  setField: (field: "name" | "repoUrl" | "appPath" | "variables" | "domain", value: string) => void;
   setFramework: (framework: DeployFramework) => void;
   clearFeedback: () => void;
   setStatus: (status: DeployFormStatus, statusMessage?: string | null) => void;
@@ -44,6 +46,7 @@ function buildPayload(state: DeployFormState): DeployPayload {
     appPath: trimmedPath ? trimmedPath : null,
     variables: state.variables,
     framework: state.framework,
+    domain: state.domain.trim() ? state.domain.trim() : undefined,
     submittedAt: new Date().toISOString(),
   };
 }
@@ -54,6 +57,7 @@ export const useDeployFormStore = create<DeployFormState>((set, get) => ({
   appPath: "",
   variables: "",
   framework: "vite",
+  domain: "",
   error: null,
   status: "idle",
   statusMessage: null,

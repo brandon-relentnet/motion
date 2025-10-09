@@ -107,6 +107,7 @@ app.post("/api/deploy", async (req, res) => {
     return res.status(400).json({ error: "Both name and repoUrl are required." });
   }
   const formVariables = typeof req.body.variables === "string" ? req.body.variables : "";
+  const formDomainRaw = typeof req.body.domain === "string" ? req.body.domain.trim() : "";
 
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.setHeader("Transfer-Encoding", "chunked");
@@ -149,7 +150,18 @@ app.post("/api/deploy", async (req, res) => {
 
   const savedSettings = await readAppSettings(name).catch(() => null);
   const formEnv = parseEnvString(formVariables);
-  const buildEnv = { ...(savedSettings?.publicEnv ?? {}), ...(formEnv ?? {}) };
+  const normalizedFormDomain = normalizeDomainInput(formDomainRaw);
+  const normalizedSavedDomain = normalizeDomainInput(savedSettings?.domain);
+  const effectiveDomain = normalizedFormDomain ?? normalizedSavedDomain;
+
+  const buildEnv: Record<string, string> = {
+    ...(savedSettings?.publicEnv ?? {}),
+    ...(formEnv ?? {}),
+  };
+  if (effectiveDomain) {
+    const domainUrl = new URL(effectiveDomain);
+    buildEnv.VITE_ALLOWED_DOMAIN = domainUrl.hostname;
+  }
   const secretEnv = savedSettings?.secrets ?? {};
 
   try {
@@ -200,6 +212,7 @@ app.post("/api/deploy", async (req, res) => {
       sourceDist: path.join(workspaceRoot, "dist"),
       baseOutputDir: process.env.DEPLOY_OUTPUT_DIR,
       baseUrl: process.env.DEPLOY_BASE_URL,
+      domain: effectiveDomain,
       onOutput: safeWrite,
     });
 
@@ -244,6 +257,14 @@ app.post("/api/deploy", async (req, res) => {
       await appendHistoryEvent(event);
     } catch (historyError) {
       console.error("[deploy] failed to append deployment record", historyError);
+    }
+
+    if (normalizedFormDomain) {
+      try {
+        await writeAppSettings(name, { domain: normalizedFormDomain });
+      } catch (settingsError) {
+        console.error("[deploy] failed to persist domain", settingsError);
+      }
     }
   }
 });
@@ -572,12 +593,14 @@ async function publishBuild({
   sourceDist,
   baseOutputDir,
   baseUrl,
+  domain,
   onOutput,
 }: {
   name: string;
   sourceDist: string;
   baseOutputDir?: string;
   baseUrl?: string;
+  domain?: string;
   onOutput: (text: string) => void;
 }): Promise<{ container: string; status: string; url?: string }> {
   try {
@@ -605,7 +628,8 @@ async function publishBuild({
     onOutput,
   });
 
-  const url = buildAppUrl(name, baseUrl);
+  const normalizedDomain = normalizeDomainInput(domain);
+  const url = normalizedDomain ?? buildAppUrl(name, baseUrl);
 
   return {
     container,
@@ -850,6 +874,18 @@ function parseEnvString(text: string) {
     result[key.trim()] = rest.join("=").trim();
   }
   return Object.keys(result).length ? result : undefined;
+}
+
+function normalizeDomainInput(value?: string | null) {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const candidate = trimmed.includes("://") ? trimmed : `https://${trimmed}`;
+  try {
+    return new URL(candidate).toString();
+  } catch {
+    return undefined;
+  }
 }
 
 async function recordContainerAction({
