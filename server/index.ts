@@ -84,6 +84,7 @@ app.post("/api/deploy", async (req, res) => {
 
   try {
     console.log("[deploy] entering git stage");
+    console.log("[deploy] aborted before git stage?", aborted);
     safeWrite("== Git clone/update ==\n");
     console.log("[deploy] git clone invoked for", repoUrl, "branch", branch);
     const { commit } = await runGitClone({
@@ -98,6 +99,7 @@ app.post("/api/deploy", async (req, res) => {
     });
     console.log("[deploy] git clone finished", workspaceRoot);
 
+    console.log("[deploy] writing commit line");
     safeWrite(`Checked out commit: ${commit}\n`);
 
     const stages = [
