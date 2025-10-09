@@ -21,30 +21,44 @@ interface AppInfo {
   updatedAt: string;
   url?: string;
 }
-
-const apps: AppInfo[] = [
-  {
-    name: "landing",
-    container: "static_landing",
-    state: "running",
-    status: "Up 3 hours",
-    updatedAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
-  },
-  {
-    name: "docs",
-    container: "static_docs",
-    state: "exited",
-    status: "Exited (0) 2 days ago",
-    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
-  },
-];
+const containerPrefix = process.env.CONTAINER_PREFIX ?? "lecrev_";
+const pendingApps = new Map<string, AppInfo>();
 
 app.get("/healthz", (_req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
 });
 
-app.get("/api/apps", (_req, res) => {
-  res.json({ apps });
+app.get("/api/apps", async (_req, res) => {
+  try {
+    let dockerApps: AppInfo[] = [];
+    try {
+      dockerApps = await listDockerContainers();
+    } catch (error) {
+      console.error("[deploy] failed to list docker containers", error);
+    }
+
+    const byName = new Map<string, AppInfo>();
+
+    for (const app of dockerApps) {
+      byName.set(app.name, app);
+    }
+
+    for (const [name, pending] of pendingApps.entries()) {
+      if (!byName.has(name)) {
+        byName.set(name, pending);
+      } else {
+        const current = byName.get(name)!;
+        if (pending.url && !current.url) {
+          current.url = pending.url;
+        }
+      }
+    }
+
+    res.json({ apps: Array.from(byName.values()) });
+  } catch (error) {
+    console.error("[deploy] failed to assemble app list", error);
+    res.status(500).json({ error: "Failed to list applications" });
+  }
 });
 
 app.post("/api/deploy", async (req, res) => {
@@ -153,45 +167,55 @@ app.post("/api/deploy", async (req, res) => {
   }
 });
 
-app.post("/api/containers/:container/action", (req, res) => {
+app.post("/api/containers/:container/action", async (req, res) => {
   const container = String(req.params.container);
   const { action, purge } = req.body ?? {};
-  const app = apps.find((item) => item.container === container);
 
-  if (!app) {
-    return res.status(404).json({ error: `Container ${container} not found.` });
+  if (!container.startsWith(containerPrefix)) {
+    return res.status(400).json({ error: "Container not managed by this service." });
   }
 
-  switch (action) {
-    case "start":
-      app.state = "running";
-      app.status = "Up just now";
-      break;
-    case "stop":
-      app.state = "exited";
-      app.status = "Exited (0) just now";
-      break;
-    case "restart":
-      app.state = "restarting";
-      app.status = "Restarting...";
-      setTimeout(() => {
-        app.state = "running";
-        app.status = "Up just now";
-        app.updatedAt = new Date().toISOString();
-      }, 1000);
-      break;
-    case "remove":
-      removeApp(container);
-      if (purge) {
-        console.info(`Purging app files for ${container}`);
-      }
-      return res.json({ ok: true, removed: true, purged: Boolean(purge) });
-    default:
-      return res.status(400).json({ error: `Unknown action ${action}` });
-  }
+  const appName = container.slice(containerPrefix.length);
 
-  app.updatedAt = new Date().toISOString();
-  res.json({ ok: true, app });
+  try {
+    switch (action) {
+      case "start":
+        await runDockerCommand(["start", container]);
+        break;
+      case "stop":
+        await runDockerCommand(["stop", container]);
+        break;
+      case "restart":
+        await runDockerCommand(["restart", container]);
+        break;
+      case "remove":
+        await runDockerCommand(["rm", container]);
+        if (purge) {
+          await purgeDeployOutput(appName);
+        }
+        pendingApps.delete(appName);
+        return res.json({ ok: true, removed: true, purged: Boolean(purge) });
+      default:
+        return res.status(400).json({ error: `Unknown action ${action}` });
+    }
+
+    const apps = await listDockerContainers();
+    const updated = apps.find((item) => item.container === container);
+    if (!updated) {
+      return res.status(404).json({ error: `Container ${container} not found after action.` });
+    }
+
+    const pending = pendingApps.get(appName);
+    if (pending?.url && !updated.url) {
+      updated.url = pending.url;
+    }
+
+    res.json({ ok: true, app: updated });
+  } catch (error) {
+    console.error(`[deploy] action ${action} failed for ${container}`, error);
+    const message = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ error: message });
+  }
 });
 
 app.use((_req, res) => {
@@ -215,30 +239,14 @@ function upsertApp({
   status: string;
   url?: string;
 }) {
-  const existing = apps.find((item) => item.name === name);
-  if (existing) {
-    existing.state = state;
-    existing.status = status;
-    existing.container = container;
-    existing.updatedAt = new Date().toISOString();
-    existing.url = url;
-  } else {
-    apps.push({
-      name,
-      container,
-      state,
-      status,
-      updatedAt: new Date().toISOString(),
-      ...(url ? { url } : {}),
-    });
-  }
-}
-
-function removeApp(container: string) {
-  const index = apps.findIndex((item) => item.container === container);
-  if (index >= 0) {
-    apps.splice(index, 1);
-  }
+  pendingApps.set(name, {
+    name,
+    container,
+    state,
+    status,
+    updatedAt: new Date().toISOString(),
+    ...(url ? { url } : {}),
+  });
 }
 
 async function runGitClone({
@@ -415,8 +423,8 @@ async function publishBuild({
     throw new Error(`dist directory not found at ${sourceDist}`);
   }
 
-  const container = `static_${name}`;
-  const root = baseOutputDir ? path.resolve(baseOutputDir) : path.join(process.cwd(), "deployments");
+  const container = `${containerPrefix}${name}`;
+  const root = resolveDeployRoot(baseOutputDir);
   const destDir = path.join(root, name);
 
   await mkdir(root, { recursive: true });
@@ -428,15 +436,7 @@ async function publishBuild({
 
   onOutput("Reloading static content (simulated).\n");
 
-  let url: string | undefined;
-  if (baseUrl) {
-    try {
-      const normalized = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
-      url = new URL(`${name}/`, normalized).toString();
-    } catch (error) {
-      console.warn("[deploy] invalid DEPLOY_BASE_URL", baseUrl, error);
-    }
-  }
+  const url = buildAppUrl(name, baseUrl);
 
   return {
     container,
@@ -459,4 +459,126 @@ async function copyDirectory(source: string, destination: string) {
       }
     })
   );
+}
+
+async function listDockerContainers(): Promise<AppInfo[]> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("docker", ["ps", "--all", "--format", "{{json .}}"], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (buffer) => {
+      stdout += buffer.toString();
+    });
+    child.stderr.on("data", (buffer) => {
+      stderr += buffer.toString();
+    });
+
+    child.on("error", (error) => reject(error));
+
+    child.on("close", (code) => {
+      if (code !== 0) {
+        return reject(new Error(stderr.trim() || `docker ps exited with code ${code}`));
+      }
+
+      const lines = stdout.trim().split(/\r?\n/).filter(Boolean);
+      const apps: AppInfo[] = [];
+
+      for (const line of lines) {
+        try {
+          const data = JSON.parse(line) as Record<string, string>;
+          const containerName = data.Names;
+          if (!containerName || !containerName.startsWith(containerPrefix)) {
+            continue;
+          }
+
+          const name = containerName.slice(containerPrefix.length);
+          const state = normalizeContainerState(data.State);
+          const status = data.Status || state;
+
+          let updatedAt = new Date().toISOString();
+          const createdAt = data.CreatedAt;
+          if (createdAt) {
+            const parsed = new Date(createdAt);
+            if (!Number.isNaN(parsed.getTime())) {
+              updatedAt = parsed.toISOString();
+            }
+          }
+
+          const url = buildAppUrl(name);
+
+          apps.push({
+            name,
+            container: containerName,
+            state,
+            status,
+            updatedAt,
+            ...(url ? { url } : {}),
+          });
+        } catch (error) {
+          console.warn("[deploy] failed to parse docker entry", line, error);
+        }
+      }
+
+      resolve(apps);
+    });
+  });
+}
+
+async function runDockerCommand(args: string[]): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn("docker", args, {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stderr = "";
+    child.stderr.on("data", (buffer) => {
+      const text = buffer.toString();
+      stderr += text;
+      console.error(`[docker ${args[0]}] ${text.trimEnd()}`);
+    });
+
+    child.on("error", (error) => reject(error));
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(stderr.trim() || `docker ${args.join(" ")} exited with code ${code}`));
+      }
+    });
+  });
+}
+
+async function purgeDeployOutput(appName: string) {
+  const root = resolveDeployRoot(process.env.DEPLOY_OUTPUT_DIR);
+  const target = path.join(root, appName);
+  await rm(target, { recursive: true, force: true });
+}
+
+function resolveDeployRoot(baseOutputDir?: string) {
+  return baseOutputDir ? path.resolve(baseOutputDir) : path.join(process.cwd(), "deployments");
+}
+
+function buildAppUrl(name: string, overrideBase?: string) {
+  const base = overrideBase ?? process.env.DEPLOY_BASE_URL;
+  if (!base) return undefined;
+
+  try {
+    const normalized = base.endsWith("/") ? base : `${base}/`;
+    return new URL(`${name}/`, normalized).toString();
+  } catch (error) {
+    console.warn("[deploy] invalid base URL", base, error);
+    return undefined;
+  }
+}
+
+function normalizeContainerState(value?: string): ContainerState {
+  const state = (value ?? "").toLowerCase();
+  if (state.includes("running")) return "running";
+  if (state.includes("restart")) return "restarting";
+  return "exited";
 }
