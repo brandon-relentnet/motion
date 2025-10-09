@@ -54,6 +54,7 @@ app.post("/api/deploy", async (req, res) => {
 
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.setHeader("Transfer-Encoding", "chunked");
+  res.flushHeaders();
 
   let aborted = false;
   let activeProcess: ChildProcess | null = null;
@@ -66,6 +67,8 @@ app.post("/api/deploy", async (req, res) => {
   const safeWrite = (message: string) => {
     if (!aborted) {
       res.write(message);
+      res.flush?.();
+      console.log(message.trimEnd());
     }
   };
 
