@@ -1,5 +1,9 @@
 import cors from "cors";
 import express from "express";
+import { spawn, type ChildProcess } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 const app = express();
 const port = Number.parseInt(process.env.API_PORT ?? process.env.PORT ?? "4000", 10);
@@ -43,7 +47,7 @@ app.get("/api/apps", (_req, res) => {
 });
 
 app.post("/api/deploy", async (req, res) => {
-  const { name, repoUrl, framework, appPath } = req.body ?? {};
+  const { name, repoUrl, framework, appPath, branch: branchInput } = req.body ?? {};
   if (!name || !repoUrl) {
     return res.status(400).json({ error: "Both name and repoUrl are required." });
   }
@@ -52,8 +56,11 @@ app.post("/api/deploy", async (req, res) => {
   res.setHeader("Transfer-Encoding", "chunked");
 
   let aborted = false;
+  let activeProcess: ChildProcess | null = null;
+
   req.on("close", () => {
     aborted = true;
+    activeProcess?.kill("SIGTERM");
   });
 
   const safeWrite = (message: string) => {
@@ -67,47 +74,68 @@ app.post("/api/deploy", async (req, res) => {
   if (framework) safeWrite(`Framework: ${framework}\n`);
   if (appPath) safeWrite(`App Path: ${appPath}\n`);
 
-  const commitHash = randomCommit();
-  const stages = [
-    {
-      marker: "== Git clone/update ==",
-      logs: [`Cloning repository...`, `Checked out commit: ${commitHash}`],
-    },
-    {
-      marker: "== Build with Node (docker) ==",
-      logs: [`Installing dependencies...`, `Running build script...`],
-    },
-    {
-      marker: "== Publish with Nginx ==",
-      logs: [`Uploading assets...`, `Reloading container...`],
-    },
-  ];
+  const branch = typeof branchInput === "string" && branchInput.trim() ? branchInput.trim() : "main";
 
-  for (const stage of stages) {
-    if (aborted) break;
-    safeWrite(`${stage.marker}\n`);
-    for (const line of stage.logs) {
+  const workspaceRoot = await mkdtemp(path.join(tmpdir(), "motion-deploy-"));
+
+  try {
+    safeWrite("== Git clone/update ==\n");
+    const { commit } = await runGitClone({
+      repoUrl,
+      branch,
+      destination: workspaceRoot,
+      onProcess: (child) => {
+        activeProcess = child;
+      },
+      onOutput: safeWrite,
+    });
+
+    safeWrite(`Checked out commit: ${commit}\n`);
+
+    const stages = [
+      {
+        marker: "== Build with Node (docker) ==",
+        logs: [`Installing dependencies...`, `Running build script...`],
+      },
+      {
+        marker: "== Publish with Nginx ==",
+        logs: [`Uploading assets...`, `Reloading container...`],
+      },
+    ];
+
+    for (const stage of stages) {
       if (aborted) break;
-      safeWrite(`${line}\n`);
-      await sleep(600);
+      safeWrite(`${stage.marker}\n`);
+      for (const line of stage.logs) {
+        if (aborted) break;
+        safeWrite(`${line}\n`);
+        await sleep(600);
+      }
+      await sleep(400);
     }
-    await sleep(400);
+
+    if (aborted) {
+      safeWrite("Deployment cancelled by client.\n");
+      return res.end();
+    }
+
+    upsertApp({
+      name,
+      container: `static_${name}`,
+      state: "running",
+      status: "Up just now",
+    });
+
+    safeWrite("Deployment complete.\n");
+    res.end();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    safeWrite(`Deployment failed: ${message}\n`);
+    res.destroy(new Error(message));
+  } finally {
+    activeProcess?.kill("SIGTERM");
+    await rm(workspaceRoot, { recursive: true, force: true });
   }
-
-  if (aborted) {
-    safeWrite("Deployment cancelled by client.\n");
-    return res.end();
-  }
-
-  upsertApp({
-    name,
-    container: `static_${name}`,
-    state: "running",
-    status: "Up just now",
-  });
-
-  safeWrite("Deployment complete.\n");
-  res.end();
 });
 
 app.post("/api/containers/:container/action", (req, res) => {
@@ -163,10 +191,6 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function randomCommit() {
-  return Math.random().toString(16).slice(2, 9).padEnd(7, "0");
-}
-
 function upsertApp({
   name,
   container,
@@ -200,4 +224,76 @@ function removeApp(container: string) {
   if (index >= 0) {
     apps.splice(index, 1);
   }
+}
+
+async function runGitClone({
+  repoUrl,
+  branch,
+  destination,
+  onProcess,
+  onOutput,
+}: {
+  repoUrl: string;
+  branch: string;
+  destination: string;
+  onProcess: (child: ChildProcess) => void;
+  onOutput: (text: string) => void;
+}): Promise<{ commit: string }> {
+  return new Promise((resolve, reject) => {
+    const args = ["clone", "--depth", "1", "--single-branch", "--branch", branch, repoUrl, destination];
+    const child = spawn("git", args, { stdio: ["ignore", "pipe", "pipe"] });
+    onProcess(child);
+
+    const handleData = (buffer: Buffer) => {
+      const text = buffer.toString();
+      onOutput(text);
+    };
+
+    child.stdout.on("data", handleData);
+    child.stderr.on("data", handleData);
+
+    child.on("error", (error) => {
+      reject(error);
+    });
+
+    child.on("close", async (code) => {
+      if (code !== 0) {
+        reject(new Error(`Git exited with code ${code}`));
+        return;
+      }
+
+      try {
+        const commit = await resolveCommit(destination);
+        resolve({ commit });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+async function resolveCommit(directory: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("git", ["rev-parse", "HEAD"], { cwd: directory, stdio: ["ignore", "pipe", "pipe"] });
+    let output = "";
+    let errorOutput = "";
+
+    child.stdout.on("data", (buffer) => {
+      output += buffer.toString();
+    });
+
+    child.stderr.on("data", (buffer) => {
+      errorOutput += buffer.toString();
+    });
+
+    child.on("error", (error) => reject(error));
+
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(errorOutput || `git rev-parse exited with code ${code}`));
+        return;
+      }
+      resolve(output.trim());
+    });
+  });
 }
