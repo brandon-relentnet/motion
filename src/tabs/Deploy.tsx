@@ -198,7 +198,7 @@ export default function Deploy({ tab }: { tab: Tab }) {
         </header>
         <pre
           ref={logAreaRef}
-          className="flex-1 whitespace-pre-wrap overflow-auto px-4 py-3 text-sm text-base-content/80 bg-base-300/40"
+          className="flex-1 max-h-64 rounded-box whitespace-pre-wrap overflow-y-auto px-4 py-3 text-sm text-base-content/80 bg-base-300/40"
         >
           {logText || "—"}
         </pre>

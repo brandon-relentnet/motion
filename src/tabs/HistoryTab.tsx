@@ -300,7 +300,7 @@ export default function HistoryTab({
           <span className="loading loading-spinner loading-sm" /> Loading history…
         </div>
       ) : filtered.length ? (
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-143">
           <table className="table table-zebra">
             <thead>
               <tr>

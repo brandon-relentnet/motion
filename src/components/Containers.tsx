@@ -76,7 +76,7 @@ export default function Containers({
         </div>
       ) : filteredApps.length ? (
         <div className="overflow-x-auto">
-          <table className="table table-zebra">
+          <table className="table table-zebra overflow-y-auto max-h-172">
             <thead>
               <tr>
                 <th>App</th>

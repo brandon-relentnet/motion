@@ -122,7 +122,7 @@ const View = ({
       className="absolute inset-0 p-2 origin-center transform-gpu will-change-transform isolate"
       aria-hidden={!isActive}
     >
-      <div className="w-full h-full p-8 box-border flex flex-col gap-3">
+      <div className="w-full overflow-hidden h-full p-8 box-border flex flex-col gap-3">
         <Component tab={tab} />
       </div>
     </motion.div>
