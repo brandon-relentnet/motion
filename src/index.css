@@ -94,3 +94,8 @@
     --font-poppins: "Poppins", sans-serif;
     --font-inter: "Inter", sans-serif;
 }
+
+html.theme-transition,
+html.theme-transition * {
+    transition: color 0.22s ease, background-color 0.22s ease, border-color 0.22s ease;
+}

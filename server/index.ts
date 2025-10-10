@@ -15,6 +15,7 @@ import {
   readAppSettings,
   writeAppSettings,
   deleteAppSettings,
+  readAllSettings,
   type AppSettings,
 } from "./settingsStore";
 
@@ -33,6 +34,10 @@ interface AppInfo {
   status: string;
   updatedAt: string;
   url?: string;
+  repoUrl?: string;
+  branch?: string;
+  framework?: string;
+  lastDeployedAt?: string;
 }
 const containerPrefix = process.env.CONTAINER_PREFIX ?? "lecrev_";
 const pendingApps = new Map<string, AppInfo>();
@@ -50,15 +55,28 @@ app.get("/api/apps", async (_req, res) => {
       console.error("[deploy] failed to list docker containers", error);
     }
 
+    const settingsMap = await readAllSettings();
     const byName = new Map<string, AppInfo>();
 
+    const withMetadata = (info: AppInfo): AppInfo => {
+      const meta = settingsMap[info.name];
+      if (!meta) return info;
+      return {
+        ...info,
+        ...(meta.repoUrl ? { repoUrl: meta.repoUrl } : {}),
+        ...(meta.branch ? { branch: meta.branch } : {}),
+        ...(meta.framework ? { framework: meta.framework } : {}),
+        ...(meta.lastDeployedAt ? { lastDeployedAt: meta.lastDeployedAt } : {}),
+      };
+    };
+
     for (const app of dockerApps) {
-      byName.set(app.name, app);
+      byName.set(app.name, withMetadata(app));
     }
 
     for (const [name, pending] of pendingApps.entries()) {
       if (!byName.has(name)) {
-        byName.set(name, pending);
+        byName.set(name, withMetadata(pending));
       } else {
         const current = byName.get(name)!;
         if (pending.url && !current.url) {
@@ -170,6 +188,7 @@ app.post("/api/deploy", async (req, res) => {
   let publishResult: { container: string; status: string; url?: string } | undefined;
   let status: DeploymentStatus = "success";
   let errorMessage: string | undefined;
+  let completedAtIso: string | undefined;
 
   const savedSettings = await readAppSettings(name).catch(() => null);
   const formEnv = parseEnvString(formVariables);
@@ -245,6 +264,10 @@ app.post("/api/deploy", async (req, res) => {
       state: "running",
       status: publishResult.status,
       url: publishResult.url,
+      repoUrl,
+      branch,
+      framework,
+      lastDeployedAt: (completedAtIso = new Date().toISOString()),
     });
 
     safeWrite("Deployment complete.\n");
@@ -272,7 +295,7 @@ app.post("/api/deploy", async (req, res) => {
       commit: commitSha,
       status,
       startedAt: new Date(startedAt).toISOString(),
-      completedAt: new Date(endedAt).toISOString(),
+      completedAt: completedAtIso ?? new Date(endedAt).toISOString(),
       durationMs: endedAt - startedAt,
       ...(errorMessage ? { message: errorMessage } : {}),
     };
@@ -291,7 +314,7 @@ app.post("/api/deploy", async (req, res) => {
 
     if (status === "success") {
       settingsUpdate.lastCommit = commitSha;
-      settingsUpdate.lastDeployedAt = new Date(endedAt).toISOString();
+      settingsUpdate.lastDeployedAt = completedAtIso ?? new Date(endedAt).toISOString();
     }
 
     if (formEnv) {
@@ -489,12 +512,20 @@ function upsertApp({
   state,
   status,
   url,
+  repoUrl,
+  branch,
+  framework,
+  lastDeployedAt,
 }: {
   name: string;
   container: string;
   state: ContainerState;
   status: string;
   url?: string;
+  repoUrl?: string;
+  branch?: string;
+  framework?: string;
+  lastDeployedAt?: string;
 }) {
   pendingApps.set(name, {
     name,
@@ -503,6 +534,10 @@ function upsertApp({
     status,
     updatedAt: new Date().toISOString(),
     ...(url ? { url } : {}),
+    ...(repoUrl ? { repoUrl } : {}),
+    ...(branch ? { branch } : {}),
+    ...(framework ? { framework } : {}),
+    ...(lastDeployedAt ? { lastDeployedAt } : {}),
   });
 }
 

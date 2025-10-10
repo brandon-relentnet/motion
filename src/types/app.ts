@@ -7,4 +7,8 @@ export interface AppInfo {
   status: string;
   updatedAt: string;
   url?: string;
+  repoUrl?: string;
+  branch?: string;
+  framework?: string;
+  lastDeployedAt?: string;
 }

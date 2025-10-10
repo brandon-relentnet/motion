@@ -120,6 +120,14 @@ function ContainerRow({
   );
   const sessionRunning = useDeploySessionStore((state) => state.isRunning);
 
+  const repoLabel = useMemo(() => formatRepositoryLabel(app.repoUrl), [app.repoUrl]);
+  const branchLabel = app.branch?.trim() ?? "";
+  const frameworkLabel = app.framework?.trim() ?? "";
+  const lastDeployRelative = useMemo(
+    () => (app.lastDeployedAt ? formatRelativeTime(app.lastDeployedAt) : null),
+    [app.lastDeployedAt]
+  );
+
   const handleAction = async (
     action: "start" | "stop" | "restart" | "remove",
     options?: { purge?: boolean }
@@ -161,6 +169,33 @@ function ContainerRow({
             >
               {app.url}
             </a>
+          )}
+          {(repoLabel || branchLabel || frameworkLabel || lastDeployRelative) && (
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-base-content/60">
+              {repoLabel && app.repoUrl ? (
+                <a
+                  href={app.repoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="badge badge-outline"
+                >
+                  {repoLabel}
+                </a>
+              ) : null}
+              {branchLabel && (
+                <span className="badge badge-ghost">{branchLabel}</span>
+              )}
+              {frameworkLabel && (
+                <span className="badge badge-ghost badge-outline">
+                  {frameworkLabel}
+                </span>
+              )}
+              {lastDeployRelative && (
+                <span className="badge badge-ghost" title={formatTimestamp(app.lastDeployedAt!)}>
+                  {lastDeployRelative}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </td>
@@ -210,16 +245,18 @@ function renderActionButtons({
 
   return (
     <>
-      <button
-        className="btn btn-xs btn-primary"
-        disabled={isBusy || sessionRunning}
-        onClick={(event) => {
-          event.stopPropagation();
-          onRedeploy();
-        }}
-      >
-        {pending === "update" ? <Spinner /> : "Update"}
-      </button>
+      <div className="tooltip tooltip-bottom" data-tip="Redeploy latest build">
+        <button
+          className="btn btn-xs btn-primary"
+          disabled={isBusy || sessionRunning}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRedeploy();
+          }}
+        >
+          {pending === "update" ? <Spinner /> : "Update"}
+        </button>
+      </div>
       <button
         className="btn btn-xs"
         disabled={isBusy || appState === "running"}
@@ -293,4 +330,34 @@ function formatTimestamp(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString();
+}
+
+function formatRelativeTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const diff = Date.now() - date.getTime();
+  if (diff < 0) return "just now";
+  const seconds = Math.round(diff / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 60) return `${days}d ago`;
+  return date.toLocaleDateString();
+}
+
+function formatRepositoryLabel(repoUrl?: string) {
+  if (!repoUrl) return "";
+  try {
+    const url = new URL(repoUrl);
+    const segments = url.pathname.split("/").filter(Boolean);
+    if (segments.length >= 2) {
+      return `${segments[segments.length - 2]}/${segments[segments.length - 1].replace(/\.git$/, "")}`;
+    }
+    return url.hostname;
+  } catch {
+    return repoUrl;
+  }
 }

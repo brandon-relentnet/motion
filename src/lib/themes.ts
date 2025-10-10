@@ -58,6 +58,31 @@ export const applyThemePreference = (theme: Theme) => {
   document.documentElement.setAttribute("data-theme", theme);
 };
 
+export const animateThemeChange = (cb: () => void) => {
+  if (typeof document === "undefined") {
+    cb();
+    return;
+  }
+
+  const root = document.documentElement as HTMLElement & {
+    startViewTransition?: (callback: () => void) => Promise<unknown>;
+  };
+
+  const startTransition = root.startViewTransition;
+  if (typeof startTransition === "function") {
+    void startTransition(() => {
+      cb();
+    });
+    return;
+  }
+
+  root.classList.add("theme-transition");
+  cb();
+  window.setTimeout(() => {
+    root.classList.remove("theme-transition");
+  }, 220);
+};
+
 export const THEME_COLORS: Record<
   (typeof THEMES)[number],
   [string, string, string, string]
