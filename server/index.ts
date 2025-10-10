@@ -1013,6 +1013,18 @@ async function ensureStaticContainer({
 }) {
   await runDockerCommandSafe(["rm", "-f", containerName]);
 
+  const configPath = path.join(process.cwd(), "deploy/nginx.conf");
+  let configExists = false;
+  try {
+    await stat(configPath);
+    configExists = true;
+  } catch (error) {
+    console.warn(
+      "[deploy] custom nginx config missing; falling back to default",
+      error instanceof Error ? error.message : error
+    );
+  }
+
   const args = [
     "run",
     "-d",
@@ -1024,11 +1036,15 @@ async function ensureStaticContainer({
     `${bundleDir}:/usr/share/nginx/html:ro`,
   ];
 
+  if (configExists) {
+    args.push("-v", `${configPath}:/etc/nginx/conf.d/default.conf:ro`);
+  }
+
   if (network) {
     args.push("--network", network);
   }
 
-  args.push("nginx:alpine");
+  args.push("nginx:1.27-alpine");
 
   onOutput(`$ docker ${args.join(" ")}\n`);
   await runDockerCommand(args, onOutput);
