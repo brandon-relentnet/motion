@@ -13,7 +13,7 @@ export default function App() {
   }, [fetchApps]);
 
   return (
-    <div className="px-8 min-h-screen flex flex-col items-center gap-6 py-6">
+    <div className="px-8 min-h-screen flex flex-col items-center justify-center gap-6 py-6">
       <header className="w-full max-w-[1600px] flex justify-end">
         <ThemeDropdown />
       </header>
