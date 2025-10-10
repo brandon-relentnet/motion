@@ -20,7 +20,10 @@ import {
 } from "./settingsStore";
 
 const app = express();
-const port = Number.parseInt(process.env.API_PORT ?? process.env.PORT ?? "4000", 10);
+const port = Number.parseInt(
+  process.env.API_PORT ?? process.env.PORT ?? "4000",
+  10
+);
 
 app.use(cors());
 app.use(express.json());
@@ -95,8 +98,12 @@ app.get("/api/apps", async (_req, res) => {
 app.get("/api/deployments", async (req, res) => {
   try {
     const history = await readHistory();
-    const appFilter = typeof req.query.app === "string" ? req.query.app.trim() : "";
-    const limitParam = typeof req.query.limit === "string" ? Number.parseInt(req.query.limit, 10) : undefined;
+    const appFilter =
+      typeof req.query.app === "string" ? req.query.app.trim() : "";
+    const limitParam =
+      typeof req.query.limit === "string"
+        ? Number.parseInt(req.query.limit, 10)
+        : undefined;
     const typeFilter = parseHistoryType(req.query.type);
     const statusFilter = parseHistoryStatus(req.query.status);
     const sinceFilter = parseDate(req.query.since);
@@ -109,7 +116,9 @@ app.get("/api/deployments", async (req, res) => {
 
     if (typeFilter !== "all") {
       records = records.filter((record) =>
-        typeFilter === "deployment" ? record.kind === "deployment" : record.kind === "container-action"
+        typeFilter === "deployment"
+          ? record.kind === "deployment"
+          : record.kind === "container-action"
       );
     }
 
@@ -118,17 +127,21 @@ app.get("/api/deployments", async (req, res) => {
     }
 
     if (sinceFilter) {
-      records = records.filter((record) => eventTimestamp(record).getTime() >= sinceFilter.getTime());
+      records = records.filter(
+        (record) => eventTimestamp(record).getTime() >= sinceFilter.getTime()
+      );
     }
 
     if (untilFilter) {
-      records = records.filter((record) => eventTimestamp(record).getTime() <= untilFilter.getTime());
+      records = records.filter(
+        (record) => eventTimestamp(record).getTime() <= untilFilter.getTime()
+      );
     }
 
     records = records
       .slice()
-      .sort((a, b) =>
-        eventTimestamp(b).getTime() - eventTimestamp(a).getTime()
+      .sort(
+        (a, b) => eventTimestamp(b).getTime() - eventTimestamp(a).getTime()
       );
 
     if (limitParam && Number.isFinite(limitParam) && limitParam > 0) {
@@ -143,12 +156,22 @@ app.get("/api/deployments", async (req, res) => {
 });
 
 app.post("/api/deploy", async (req, res) => {
-  const { name, repoUrl, framework, appPath, branch: branchInput } = req.body ?? {};
+  const {
+    name,
+    repoUrl,
+    framework,
+    appPath,
+    branch: branchInput,
+  } = req.body ?? {};
   if (!name || !repoUrl) {
-    return res.status(400).json({ error: "Both name and repoUrl are required." });
+    return res
+      .status(400)
+      .json({ error: "Both name and repoUrl are required." });
   }
-  const formVariables = typeof req.body.variables === "string" ? req.body.variables : "";
-  const formDomainRaw = typeof req.body.domain === "string" ? req.body.domain.trim() : "";
+  const formVariables =
+    typeof req.body.variables === "string" ? req.body.variables : "";
+  const formDomainRaw =
+    typeof req.body.domain === "string" ? req.body.domain.trim() : "";
 
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.setHeader("Transfer-Encoding", "chunked");
@@ -178,14 +201,19 @@ app.post("/api/deploy", async (req, res) => {
   if (framework) safeWrite(`Framework: ${framework}\n`);
   if (appPath) safeWrite(`App Path: ${appPath}\n`);
 
-  const branch = typeof branchInput === "string" && branchInput.trim() ? branchInput.trim() : "main";
+  const branch =
+    typeof branchInput === "string" && branchInput.trim()
+      ? branchInput.trim()
+      : "main";
 
   const workspaceRoot = await mkdtemp(path.join(tmpdir(), "motion-deploy-"));
   console.log("[deploy] workspace", workspaceRoot);
 
   const startedAt = Date.now();
   let commitSha: string | undefined;
-  let publishResult: { container: string; status: string; url?: string } | undefined;
+  let publishResult:
+    | { container: string; status: string; url?: string }
+    | undefined;
   let status: DeploymentStatus = "success";
   let errorMessage: string | undefined;
   let completedAtIso: string | undefined;
@@ -278,7 +306,9 @@ app.post("/api/deploy", async (req, res) => {
     safeWrite(`Deployment failed: ${message}\n`);
     res.destroy(new Error(message));
     status =
-      error instanceof Error && error.name === "AbortError" ? "cancelled" : "failed";
+      error instanceof Error && error.name === "AbortError"
+        ? "cancelled"
+        : "failed";
     errorMessage = message;
   } finally {
     activeProcess?.kill("SIGTERM");
@@ -302,19 +332,26 @@ app.post("/api/deploy", async (req, res) => {
     try {
       await appendHistoryEvent(event);
     } catch (historyError) {
-      console.error("[deploy] failed to append deployment record", historyError);
+      console.error(
+        "[deploy] failed to append deployment record",
+        historyError
+      );
     }
 
     const settingsUpdate: Partial<AppSettings> = {
       repoUrl,
       framework,
       branch,
-      appPath: typeof appPath === "string" && appPath.trim() ? appPath.trim() : undefined,
+      appPath:
+        typeof appPath === "string" && appPath.trim()
+          ? appPath.trim()
+          : undefined,
     };
 
     if (status === "success") {
       settingsUpdate.lastCommit = commitSha;
-      settingsUpdate.lastDeployedAt = completedAtIso ?? new Date(endedAt).toISOString();
+      settingsUpdate.lastDeployedAt =
+        completedAtIso ?? new Date(endedAt).toISOString();
     }
 
     if (formEnv) {
@@ -424,7 +461,9 @@ app.post("/api/containers/:container/action", async (req, res) => {
   const { action, purge } = req.body ?? {};
 
   if (!container.startsWith(containerPrefix)) {
-    return res.status(400).json({ error: "Container not managed by this service." });
+    return res
+      .status(400)
+      .json({ error: "Container not managed by this service." });
   }
 
   const appName = container.slice(containerPrefix.length);
@@ -468,7 +507,9 @@ app.post("/api/containers/:container/action", async (req, res) => {
         status: "failed",
         message: "Container vanished after action.",
       });
-      return res.status(404).json({ error: `Container ${container} not found after action.` });
+      return res
+        .status(404)
+        .json({ error: `Container ${container} not found after action.` });
     }
 
     const pending = pendingApps.get(appName);
@@ -547,7 +588,9 @@ function parseHistoryType(value: unknown): "all" | "deployment" | "action" {
   return "all";
 }
 
-function parseHistoryStatus(value: unknown): "all" | "success" | "failed" | "cancelled" {
+function parseHistoryStatus(
+  value: unknown
+): "all" | "success" | "failed" | "cancelled" {
   if (value === "success" || value === "failed" || value === "cancelled") {
     return value;
   }
@@ -579,7 +622,16 @@ async function runGitClone({
   onOutput: (text: string) => void;
 }): Promise<{ commit: string }> {
   return new Promise((resolve, reject) => {
-    const args = ["clone", "--depth", "1", "--single-branch", "--branch", branch, repoUrl, destination];
+    const args = [
+      "clone",
+      "--depth",
+      "1",
+      "--single-branch",
+      "--branch",
+      branch,
+      repoUrl,
+      destination,
+    ];
     const child = spawn("git", args, { stdio: ["ignore", "pipe", "pipe"] });
     onProcess(child);
 
@@ -613,7 +665,10 @@ async function runGitClone({
 
 async function resolveCommit(directory: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn("git", ["rev-parse", "HEAD"], { cwd: directory, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn("git", ["rev-parse", "HEAD"], {
+      cwd: directory,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     let output = "";
     let errorOutput = "";
 
@@ -629,7 +684,9 @@ async function resolveCommit(directory: string): Promise<string> {
 
     child.on("close", (code) => {
       if (code !== 0) {
-        reject(new Error(errorOutput || `git rev-parse exited with code ${code}`));
+        reject(
+          new Error(errorOutput || `git rev-parse exited with code ${code}`)
+        );
         return;
       }
       resolve(output.trim());
@@ -767,7 +824,7 @@ async function publishBuild({
   await ensureStaticContainer({
     containerName: container,
     bundleDir: destDir,
-    network: process.env.REVERSE_PROXY_NETWORK,
+    network: process.env.REVERSE_PROXY_NETWORK || "reverse-proxy",
     onOutput,
   });
 
@@ -826,7 +883,9 @@ async function listDockerContainers(): Promise<AppInfo[]> {
 
     child.on("close", (code) => {
       if (code !== 0) {
-        return reject(new Error(stderr.trim() || `docker ps exited with code ${code}`));
+        return reject(
+          new Error(stderr.trim() || `docker ps exited with code ${code}`)
+        );
       }
 
       const lines = stdout.trim().split(/\r?\n/).filter(Boolean);
@@ -906,7 +965,11 @@ async function runDockerCommand(
       if (code === 0 || ignoreFailure) {
         resolve();
       } else {
-        reject(new Error(stderr.trim() || `docker ${args.join(" ")} exited with code ${code}`));
+        reject(
+          new Error(
+            stderr.trim() || `docker ${args.join(" ")} exited with code ${code}`
+          )
+        );
       }
     });
   });
@@ -919,7 +982,9 @@ async function purgeDeployOutput(appName: string) {
 }
 
 function resolveDeployRoot(baseOutputDir?: string) {
-  return baseOutputDir ? path.resolve(baseOutputDir) : path.join(process.cwd(), "deployments");
+  return baseOutputDir
+    ? path.resolve(baseOutputDir)
+    : path.join(process.cwd(), "deployments");
 }
 
 function buildAppUrl(name: string, overrideBase?: string) {
@@ -1009,7 +1074,10 @@ function matchesStatus(
 function normalizeEnvMap(value: unknown): Record<string, string> | undefined {
   if (!value || typeof value !== "object") return undefined;
   const entries = Object.entries(value as Record<string, unknown>)
-    .map(([key, val]) => [key.trim(), typeof val === "string" ? val : String(val ?? "")])
+    .map(([key, val]) => [
+      key.trim(),
+      typeof val === "string" ? val : String(val ?? ""),
+    ])
     .filter(([key]) => key.length > 0);
   if (!entries.length) return undefined;
   const result: Record<string, string> = {};
